@@ -3,3 +3,4 @@ pymysql
 python-dotenv
 mysql-connector-python 
 bcrypt
+PyJWT==2.6.0

@@ -3,12 +3,14 @@ from dotenv import load_dotenv
 import mysql.connector
 from mysql.connector import Error
 import streamlit as st
-import bcrypt  # Importar bcrypt para manejar el hashing de contraseñas
+import bcrypt
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import jwt
 import datetime
+from Funciones import config_user, config_form, config_reques
+
 
 # Cargar las variables de entorno desde el archivo .env
 load_dotenv()
@@ -35,12 +37,12 @@ def create_connection():
             database=DATABASE_NAME,
             port=DATABASE_PORT
         )
-        st.success("Conexión exitosa a la base de datos")
+        return connection
     except Error as e:
         st.error(f"Error de conexión: {e}")
     return connection
 
-# Función para obtener los tipos de documento desde la base de datos
+# Función para obtener tipos de documento desde la base de datos
 def get_tipo_documento():
     conn = create_connection()
     if conn is None:
@@ -52,7 +54,7 @@ def get_tipo_documento():
     conn.close()
     return tipos_documento
 
-# Función para obtener los roles desde la base de datos
+# Función para obtener roles desde la base de datos
 def get_roles():
     conn = create_connection()
     if conn is None:
@@ -134,39 +136,15 @@ def recover_password(email):
 
     if user:
         token = generate_recovery_token(email)
-        reset_link = f"https://sistema-pqrsfdd.streamlit.app/reset_password?token={token}"  # Cambia esto por tu dominio
+        reset_link = f"https://sistema-pqrsfdd.streamlit.app/reset_password?token={token}"
         message = f"Haz clic en el siguiente enlace para restablecer tu contraseña: {reset_link}"
         send_email(email, "Recuperación de Contraseña", message)
         st.success(f"Se ha enviado un enlace para recuperar la contraseña a {email}")
     else:
         st.error("El correo electrónico no está registrado.")
 
-# Función para actualizar la contraseña en la base de datos
-def update_password(email, new_password):
-    hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
-    conn = create_connection()
-    if conn is None:
-        return False
-    cursor = conn.cursor()
-    try:
-        cursor.execute("UPDATE usuarios SET contraseña = %s WHERE correo = %s", (hashed_password, email))
-        conn.commit()
-        st.success("Contraseña actualizada exitosamente.")
-    except Error as e:
-        st.error(f"Error al actualizar la contraseña: {e}")
-        conn.rollback()
-    finally:
-        cursor.close()
-        conn.close()
-
-# Interfaz de usuario para seleccionar el formulario
-st.title("Sistema de Autenticación")
-
-# Menú de selección
-option = st.selectbox("Selecciona una opción", ("Iniciar Sesión", "Registrar Usuario", "Recuperar Contraseña"))
-
-if option == "Iniciar Sesión":
-    # Formulario de inicio de sesión
+# Función para mostrar el formulario de inicio de sesión
+def login_page():
     st.subheader("Iniciar Sesión")
     email = st.text_input("Correo Electrónico")
     password = st.text_input("Contraseña", type="password")
@@ -174,15 +152,14 @@ if option == "Iniciar Sesión":
     if st.button("Iniciar Sesión"):
         if authenticate_user(email, password):
             st.success("¡Inicio de sesión exitoso!")
-            # Aquí puedes redirigir al usuario a otro lugar, como un panel de control
+            st.session_state['authenticated'] = True
+            st.session_state['page'] = 'dashboard'
         else:
             st.error("Credenciales incorrectas")
 
-elif option == "Registrar Usuario":
-    # Formulario de registro de usuario
+# Función para mostrar el formulario de registro de usuario
+def register_page():
     st.subheader("Registrar Usuario")
-    
-    # Obtener tipos de documento y roles desde la base de datos
     tipos_documento = get_tipo_documento()
     roles = get_roles()
     
@@ -195,20 +172,18 @@ elif option == "Registrar Usuario":
 
     if st.button("Registrar"):
         if tipo_id and numero_documento and nombre and email and password and rol:
-            tipo_doc_id = next((tipo[0] for tipo in tipos_documento if tipo[1] == tipo_id), None)  
+            tipo_doc_id = next((tipo[0] for tipo in tipos_documento if tipo[1] == tipo_id), None)
             rol_id = next((r[0] for r in roles if r[1] == rol), None)
             
-            if tipo_doc_id is None:
-                st.error("El tipo de documento seleccionado no es válido.")
-            elif rol_id is None:
-                st.error("El rol seleccionado no es válido.")
+            if tipo_doc_id is None or rol_id is None:
+                st.error("El tipo de documento o el rol seleccionado no es válido.")
             else:
                 register_user(tipo_doc_id, numero_documento, nombre, email, password, rol_id)
         else:
             st.error("Por favor, completa todos los campos.")
 
-elif option == "Recuperar Contraseña":
-    # Formulario de recuperación de contraseña
+# Función para mostrar la página de recuperación de contraseña
+def recover_password_page():
     st.subheader("Recuperar Contraseña")
     email = st.text_input("Correo Electrónico")
 
@@ -217,3 +192,57 @@ elif option == "Recuperar Contraseña":
             recover_password(email)
         else:
             st.error("Por favor, ingresa tu correo electrónico.")
+
+# Función para mostrar el dashboard
+def dashboard_page():
+    st.title("Dashboard")
+    st.sidebar.header("Menú")
+    menu_option = st.sidebar.selectbox("Selecciona una opción", ["Configuración de Usuarios", "Configuración de Formularios", "Solicitudes", "Reportes", "Indicadores (KPIs)"])
+
+    if menu_option == "Configuración de Usuarios":
+        config_user.user_management_page()
+    elif menu_option == "Configuración de Formularios":
+        config_form.form_configuration_page()
+    elif menu_option == "Solicitudes":
+        config_reques.requests_page()
+    elif menu_option == "Reportes":
+        reports_page()
+    elif menu_option == "Indicadores (KPIs)":
+        kpis_page()
+
+
+
+def reports_page():
+    st.subheader("Reportes")
+    st.write("Aquí puedes generar reportes.")
+    # Lógica para generar reportes va aquí
+
+def kpis_page():
+    st.subheader("Indicadores (KPIs)")
+    st.write("Aquí puedes visualizar los indicadores clave de rendimiento.")
+    # Lógica para mostrar KPIs va aquí
+
+# Gestión de la navegación entre páginas
+if 'authenticated' not in st.session_state:
+    st.session_state['authenticated'] = False
+
+if 'page' not in st.session_state:
+    st.session_state['page'] = 'login'
+
+if st.session_state['page'] == 'login':
+    login_page()
+elif st.session_state['page'] == 'register':
+    register_page()
+elif st.session_state['page'] == 'recover':
+    recover_password_page()
+elif st.session_state['page'] == 'dashboard':
+    if st.session_state['authenticated']:
+        dashboard_page()
+    else:
+        st.error("Debes iniciar sesión para acceder al dashboard.")
+
+# Agregar botones de navegación
+if st.session_state['authenticated']:
+    if st.button("Cerrar Sesión"):
+        st.session_state['authenticated'] = False
+        st.session_state['page'] = 'login'

@@ -1,0 +1,89 @@
+/* Archivo: styles.css */
+
+/* Estilo general */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f8f9fa;
+}
+
+/* Título y subtítulo */
+h1, h2, h3, h4, h5, h6 {
+    color: #007bff;
+}
+
+/* Input Fields */
+input[type="text"], input[type="password"], select {
+    border-radius: 5px;
+    border: 1px solid #ced4da;
+    padding: 10px;
+    width: 100%;
+    margin: 5px 0;
+}
+
+/* Botones */
+button {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin: 10px 0;
+}
+
+button:hover {
+    background-color: #599ade;
+}
+
+/* Mensajes de éxito y error */
+.st-alert-success {
+    background-color: #d4edda;
+    color: #155724;
+    border-color: #c3e6cb;
+}
+
+.st-alert-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border-color: #f5c6cb;
+}
+
+/* Menú lateral */
+.sidebar .sidebar-content {
+    background-color: #343a40;
+    color: white;
+    font-size: 14px;
+}
+
+/* Links */
+a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Archivo: styles.css */
+
+/* Contenedor Principal */
+.container {
+    border: 2px solid #007bff; /* Color del borde */
+    border-radius: 10px;
+    padding: 20px;
+    max-width: 800px;
+    margin: 20px auto;
+    background-color: white;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Estilo general */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f0f2f5;
+    padding: 40px 0;
+    display: flex;
+    justify-content: center;
+}
+

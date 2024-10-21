@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from database import create_connection
 import mysql.connector
 from mysql.connector import Error
 import streamlit as st
@@ -9,38 +10,21 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import jwt
 import datetime
-from Funciones import config_user, config_form, config_reques
+from Funciones import config_user, config_form, config_reques, config_report, config_kpis
 
-
-# Cargar las variables de entorno desde el archivo .env
 load_dotenv()
 
-# Acceder a las variables de entorno
-DATABASE_HOST = os.getenv('DATABASE_HOST')
-DATABASE_USER = os.getenv('DATABASE_USER')
-DATABASE_PASSWORD = os.getenv('DATABASE_PASSWORD')
-DATABASE_NAME = os.getenv('DATABASE_NAME')
-DATABASE_PORT = os.getenv('DATABASE_PORT')
+def local_css(file_name):
+    with open(file_name) as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+# Cargar el CSS personalizado
+local_css("styles.css")
+
 EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS')
 EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
 EMAIL_HOST = os.getenv('EMAIL_HOST')
 EMAIL_PORT = os.getenv('EMAIL_PORT')
-
-# Función para conectar a la base de datos
-def create_connection():
-    connection = None
-    try:
-        connection = mysql.connector.connect(
-            host=DATABASE_HOST,
-            user=DATABASE_USER,
-            password=DATABASE_PASSWORD,
-            database=DATABASE_NAME,
-            port=DATABASE_PORT
-        )
-        return connection
-    except Error as e:
-        st.error(f"Error de conexión: {e}")
-    return connection
 
 # Función para obtener tipos de documento desde la base de datos
 def get_tipo_documento():
@@ -157,6 +141,13 @@ def login_page():
         else:
             st.error("Credenciales incorrectas")
 
+    st.markdown("[¿No tienes cuenta?](#)", unsafe_allow_html=False)
+    if st.button("Registrarse"):
+        st.session_state['page'] = 'register'
+
+    st.markdown("[¿Olvidaste tu contraseña?](#)", unsafe_allow_html=False)
+    if st.button("Recuperar Contraseña"):
+        st.session_state['page'] = 'recover'
 # Función para mostrar el formulario de registro de usuario
 def register_page():
     st.subheader("Registrar Usuario")
@@ -182,6 +173,9 @@ def register_page():
         else:
             st.error("Por favor, completa todos los campos.")
 
+    if st.button("Volver al Inicio de Sesión"):
+        st.session_state['page'] = 'login'
+
 # Función para mostrar la página de recuperación de contraseña
 def recover_password_page():
     st.subheader("Recuperar Contraseña")
@@ -193,9 +187,11 @@ def recover_password_page():
         else:
             st.error("Por favor, ingresa tu correo electrónico.")
 
+    if st.button("Volver al Inicio de Sesión"):
+        st.session_state['page'] = 'login'
+
 # Función para mostrar el dashboard
 def dashboard_page():
-    st.title("Dashboard")
     st.sidebar.header("Menú")
     menu_option = st.sidebar.selectbox("Selecciona una opción", ["Configuración de Usuarios", "Configuración de Formularios", "Solicitudes", "Reportes", "Indicadores (KPIs)"])
 
@@ -206,21 +202,12 @@ def dashboard_page():
     elif menu_option == "Solicitudes":
         config_reques.requests_page()
     elif menu_option == "Reportes":
-        reports_page()
+        config_report.reports_page()
     elif menu_option == "Indicadores (KPIs)":
-        kpis_page()
+        config_kpis.kpis_page()
 
 
 
-def reports_page():
-    st.subheader("Reportes")
-    st.write("Aquí puedes generar reportes.")
-    # Lógica para generar reportes va aquí
-
-def kpis_page():
-    st.subheader("Indicadores (KPIs)")
-    st.write("Aquí puedes visualizar los indicadores clave de rendimiento.")
-    # Lógica para mostrar KPIs va aquí
 
 # Gestión de la navegación entre páginas
 if 'authenticated' not in st.session_state:
@@ -236,13 +223,5 @@ elif st.session_state['page'] == 'register':
 elif st.session_state['page'] == 'recover':
     recover_password_page()
 elif st.session_state['page'] == 'dashboard':
-    if st.session_state['authenticated']:
-        dashboard_page()
-    else:
-        st.error("Debes iniciar sesión para acceder al dashboard.")
+    dashboard_page()
 
-# Agregar botones de navegación
-if st.session_state['authenticated']:
-    if st.button("Cerrar Sesión"):
-        st.session_state['authenticated'] = False
-        st.session_state['page'] = 'login'

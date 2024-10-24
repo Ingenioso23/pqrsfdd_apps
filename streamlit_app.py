@@ -225,3 +225,4 @@ elif st.session_state['page'] == 'recover':
 elif st.session_state['page'] == 'dashboard':
     dashboard_page()
 
+

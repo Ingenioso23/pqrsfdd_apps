@@ -1,151 +1,265 @@
 import streamlit as st
 import pandas as pd
-import mysql.connector
-from database import create_connection
-import uuid
 from datetime import datetime
-from PIL import Image
 import pytz
+import mysql.connector
+from mysql.connector import Error
+import os
+from dotenv import load_dotenv
+
+# Cargar las variables de entorno desde el archivo .env
+load_dotenv()
+hora_actual = datetime.now().time()
+# Acceder a las variables de entorno
+DATABASE_HOST = os.getenv('DATABASE_HOST')
+DATABASE_USER = os.getenv('DATABASE_USER')
+DATABASE_PASSWORD = os.getenv('DATABASE_PASSWORD')
+DATABASE_NAME = os.getenv('DATABASE_NAME')
+DATABASE_PORT = os.getenv('DATABASE_PORT')
+
+# Crear conexión a la base de datos MySQL
+def create_connection():
+    try:
+        connection = mysql.connector.connect(
+            host=DATABASE_HOST,
+            user=DATABASE_USER,
+            password=DATABASE_PASSWORD,
+            database=DATABASE_NAME,
+            port=DATABASE_PORT
+        )
+        if connection.is_connected():
+            return connection
+    except Error as e:
+        st.error(f"Error al conectar a la base de datos: {e}")
+        return None
 
 # Configuración de la página
 st.set_page_config(page_title="Formulario PQRSFDD", layout="wide")
 
+@st.cache_data
 def obtener_hora_actual_colombia():
     zona_horaria_colombia = pytz.timezone('America/Bogota')
     hora_actual = datetime.now(zona_horaria_colombia).time()
     return hora_actual
 
 # Función para obtener los datos de un campo desplegable
+@st.cache_data
 def fetch_options(query):
-    conn = create_connection()
-    df = pd.read_sql(query, conn)
-    conn.close()
-    return df
+    connection = create_connection()  # Crea la conexión
+    if connection:
+        cursor = connection.cursor()
+        cursor.execute(query)
+        results = cursor.fetchall()  # Obtiene todos los resultados
+        cursor.close()
+        connection.close()
+        return results
+    return []
 
 # Función para generar el radicado
 def generar_radicado(tipo_solicitud):
-    conn = create_connection()
-    cursor = conn.cursor()
     fecha_actual = datetime.now().strftime("%d%m%Y")
     
-    # Obtener el último consecutivo de la tabla sucesos
-    cursor.execute("SELECT MAX(SUBSTRING(id_rad, 5, 6)) FROM sucesos WHERE id_rad LIKE %s", (f'RAD.%{fecha_actual}%',))
-    ultimo_consecutivo = cursor.fetchone()[0]
-    
-    if ultimo_consecutivo:
-        nuevo_consecutivo = int(ultimo_consecutivo) + 1
-    else:
-        nuevo_consecutivo = 1
+    connection = create_connection()  # Crea la conexión
+    if connection:
+        cursor = connection.cursor()
+        query = "SELECT MAX(SUBSTRING(id_rad, 5, 6)) FROM sucesos WHERE id_rad LIKE %s"
+        cursor.execute(query, (f'RAD.%{fecha_actual}%',))
+        ultimo_consecutivo = cursor.fetchone()[0]
+
+        if ultimo_consecutivo:
+            nuevo_consecutivo = int(ultimo_consecutivo) + 1
+        else:
+            nuevo_consecutivo = 1
+            
+        consecutivo_formateado = f"{nuevo_consecutivo:06d}"
+        radicado = f"RAD.{consecutivo_formateado}{fecha_actual}-{tipo_solicitud}"
         
-    # Formatear el consecutivo a 6 dígitos
-    consecutivo_formateado = f"{nuevo_consecutivo:06d}"
-    # Generar el radicado final
-    radicado = f"RAD.{consecutivo_formateado}{fecha_actual}-{tipo_solicitud}"
-    
-    cursor.close()
-    conn.close()
-    
-    return radicado
+        cursor.close()
+        connection.close()
+        return radicado
+    return None
 
 # Función para enviar datos a la base de datos
-def submit_form(data_cliente, data_suceso, data_estado, radicado):
-    conn = create_connection()
-    cursor = conn.cursor()
+def submit_form(datos_cliente, radicado):
+    connection = create_connection()  # Crea la conexión
+    if connection:
+        cursor = connection.cursor()
+        try:
+            # Insertar en la tabla clientes
+            cursor.execute(""" 
+                INSERT INTO clientes (id_cliente, tipo_id, nombre_completo, nro_celular, email, direccion, departamento, ciudad, afiliado_eps, regimen, afiliado_ips, grupo_poblacional, acepta_notificacion) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, tuple(datos_cliente))
+            
+            # Insertar en la tabla clientes
+            cursor.execute(""" 
+                INSERT INTO sucesos (id_rad, fecha_rad, ide_servicio, ide_responsabler, fecha, hora, descripcion, observacion, adjunto) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, tuple(datos_cliente))
+            
 
-    try:
-        # Insertar en la tabla clientes
-        cursor.execute("""INSERT INTO clientes (tipo_id, nombre_completo, nro_celular, direccion, departamento, ciudad, afiliado_eps, regimen, afiliado_ips, grupo_poblacional, acepta_notificacion) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", data_cliente)
-        id_cliente = cursor.lastrowid  # Obtener el ID generado para el cliente
-
-        # Insertar en la tabla sucesos
-        cursor.execute("""INSERT INTO sucesos (id_rad, fecha_rad, id_servicio, id_responsable, fecha, hora, descripcion, observacion, adjunto) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""", (radicado,) + data_suceso)
-
-        # Insertar en la tabla estado_del_tramite
-        cursor.execute("""INSERT INTO estado_del_tramite (id_rad, fecha_vencimiento, Id_usuario, id_tipo_estado, fecha_respuesta, adjunto) VALUES (%s, %s, %s, %s, %s, %s)""", (radicado,) + data_estado)
-
-        # Confirmar cambios en la base de datos
-        conn.commit()
-        st.success(f"¡Solicitud enviada exitosamente! Número de radicado: {radicado}")
-
-    except Exception as e:
-        conn.rollback()
-        st.error(f"Error al enviar la solicitud: {str(e)}")
-    
-    finally:
-        cursor.close()
-        conn.close()
-
-fecha_solicitud = datetime.now()
+            connection.commit()  # Confirma los cambios
+            st.success("¡Solicitud enviada exitosamente!")
+            
+        except Exception as e:
+            connection.rollback()  # Revierte los cambios en caso de error
+            st.error(f"Error al enviar la solicitud: {str(e)}")
+        finally:
+            cursor.close()
+            connection.close()
 
 # Función principal para mostrar el formulario
 def main():
-    st.header("FORMATO DE PETICIONES, QUEJAS, RECLAMO, SUGERENCIAS, FELICITACIONES, DENUNCIAS - DESISTIMIENTO")
+    st.header("FORMULARIO DE SOLICITUD PQRSFDD")
 
     st.subheader("Información de la Solicitud")
+    fecha_solicitud = datetime.now()
     st.write("Fecha de Solicitud:", fecha_solicitud.strftime("%Y-%m-%d"))
-    tipo_solicitud = st.selectbox("Tipo de Solicitud", fetch_options("SELECT nombre_sol FROM tipo_solicitud").values)
-    id_tipo_solicitud = tipo_solicitud[0]  # Se asume que el id es la primera columna
-    nombre_tipo_solicitud = tipo_solicitud[1]  # Se asume que el nombre es la segunda columna
+    
+    tipo_solicitud_data = fetch_options("SELECT id_solicitud, nombre_sol FROM tipo_solicitud")
+    tipo_solicitud_opciones = [f"{row[0]} - {row[1]}" for row in tipo_solicitud_data]
+    
+    tipo_solicitud_seleccionado = st.selectbox("Tipo de Solicitud", tipo_solicitud_opciones)
+    tipo_solicitud = tipo_solicitud_seleccionado.split(" - ")[0]
 
     st.subheader("Datos del Cliente")
     nombres_apellidos = st.text_input("Nombre(s) y Apellidos", value=st.session_state.get('nombres_apellidos', ''))
-    tipo_identificacion = st.selectbox("Tipo de Identificación", fetch_options("SELECT nombre_tipo_doc FROM tipo_documento").values.flatten())
+    tipo_identificacion_data = fetch_options("SELECT id_tipo_doc, nombre_tipo_doc FROM tipo_documento")
+    tipo_identificacion_opciones = {row[1]: row[0] for row in tipo_identificacion_data}
+    tipo_identificacion_seleccionado = st.selectbox("Tipo de Identificación", list(tipo_identificacion_opciones.keys()))
+    tipo_identificacion = tipo_identificacion_opciones[tipo_identificacion_seleccionado]
+    
     numero_documento = st.text_input("Número de Documento", value=st.session_state.get('numero_documento', ''))
     direccion = st.text_input("Dirección de Residencia", value=st.session_state.get('direccion', ''))
-    departamento = st.selectbox("Departamento", fetch_options("SELECT nombre_dep FROM departamento").values.flatten())
-    municipio = st.selectbox("Municipio", fetch_options("SELECT nombre_ciu FROM ciudad").values.flatten())
+    
+    departamento_data = fetch_options("SELECT id_departamento, nombre_dep FROM departamento")
+    departamento_opciones = {row[1]: row[0] for row in departamento_data}
+    departamento_seleccionado = st.selectbox("Departamento", list(departamento_opciones.keys()))
+    departamento = departamento_opciones[departamento_seleccionado]
+
+    municipio_data = fetch_options("SELECT id_ciudad, nombre_ciu FROM ciudad")
+    municipio_opciones = {row[1]: row[0] for row in municipio_data}
+    municipio_seleccionado = st.selectbox("Municipio", list(municipio_opciones.keys()))
+    municipio = municipio_opciones[municipio_seleccionado]
+    
     celular = st.text_input("Celular", value=st.session_state.get('celular', ''))
     correo = st.text_input("Correo Electrónico", value=st.session_state.get('correo', ''))
-    afiliado_eps = st.selectbox("Afiliado a la EPS", fetch_options("SELECT nombre_eps FROM eps").values.flatten())
-    regimen = st.selectbox("Régimen", fetch_options("SELECT nombre_reg FROM regimen").values.flatten())
-    ips = st.selectbox("Organismo de Salud IPS", fetch_options("SELECT nombre_ips FROM ips").values.flatten())
-    grupo_poblacional = st.selectbox("Grupo Poblacional", fetch_options("SELECT nombre_pob FROM grupo_poblacional").values.flatten())
+
+    eps_data = fetch_options("SELECT id_eps, nombre_eps FROM eps")
+    eps_opciones = {row[1]: row[0] for row in eps_data}
+    eps_seleccionado = st.selectbox("Afiliado a la EPS", list(eps_opciones.keys()))
+    afiliado_eps = eps_opciones[eps_seleccionado]
+
+    regimen_data = fetch_options("SELECT id_regimen, nombre_reg FROM regimen")
+    regimen_opciones = {row[1]: row[0] for row in regimen_data}
+    regimen_seleccionado = st.selectbox("Régimen", list(regimen_opciones.keys()))
+    regimen = regimen_opciones[regimen_seleccionado]
+
+    ips_data = fetch_options("SELECT id_ips, nombre_ips FROM ips")
+    ips_opciones = {row[1]: row[0] for row in ips_data}
+    ips_seleccionado = st.selectbox("Organismo de Salud IPS", list(ips_opciones.keys()), index=0)
+    ips = ips_opciones[ips_seleccionado]
+
+    grupo_poblacional_data = fetch_options("SELECT id_grupo, nombre_pob FROM grupo_poblacional")
+    grupo_poblacional_opciones = {row[1]: row[0] for row in grupo_poblacional_data}
+    grupo_poblacional_seleccionado = st.selectbox("Grupo Poblacional", list(grupo_poblacional_opciones.keys()))
+    grupo_poblacional = grupo_poblacional_opciones[grupo_poblacional_seleccionado]
 
     st.subheader("Describa lo sucedido durante el proceso de atención")
-    servicio = st.selectbox("Servicio", fetch_options("SELECT nombre_serv FROM servicio_disponibles").values.flatten())
-    colaborador_responsable = st.selectbox("Nombre del Colaborador o Responsable", fetch_options("SELECT nombre_res FROM responsable_servicio").values.flatten())
+    
+    servicio_data = fetch_options("SELECT id_servicio, nombre_serv FROM servicio_disponibles")
+    if servicio_data:
+        servicio_opciones = {row[1]: row[0] for row in servicio_data}
+
+       # st.write("Opciones de servicios:", servicio_opciones)  # Verifica el diccionario
+
+        servicio_seleccionado = st.selectbox("Servicio", list(servicio_opciones.keys()))
+        
+        servicio = servicio_opciones[servicio_seleccionado]
+    else:
+        servicio_seleccionado = None
+        st.write("No existen Servicio en la Base de Datos")
+
+    
+ 
+    # Consulta para obtener los responsables asociados al servicio seleccionado de forma segura
+    responsable_data = fetch_options(f"""
+    SELECT u.id_usuario, u.nombre 
+    FROM usuarios u 
+    JOIN servicio_disponibles sd ON u.id_usuario = sd.responsable 
+    WHERE sd.id_servicio = {servicio}
+    """)
+
+    if responsable_data:
+    # Crear un diccionario con el nombre del responsable como clave y el id_usuario como valor
+        responsable_opciones = {row[1]: row[0] for row in responsable_data}
+
+    # Selectbox para seleccionar el responsable
+        responsable_seleccionado = st.selectbox("Responsable", list(responsable_opciones.keys()))
+
+    # Obtener el id_usuario correspondiente al responsable seleccionado
+        responsable = responsable_opciones[responsable_seleccionado]
+    else:
+        responsable_seleccionado = None
+        st.write("No existen responsables asociados a este servicio.")
+
     descripcion = st.text_area("Descripción", value=st.session_state.get('descripcion', ''))
     observaciones = st.text_area("Observaciones", value=st.session_state.get('observaciones', ''))
     fecha_hora_suceso = st.date_input("Fecha del Suceso", value=datetime.now())
-    hora_suceso = st.time_input("Hora del Suceso")
-    archivo_adjunto = st.file_uploader("Adjunta un archivo (Máx. 2MB)", type=['jpg', 'jpeg', 'png', 'pdf'])
-    st.caption("Arrastra y suelta el archivo aquí o haz clic para seleccionarlo.")
-    consent = st.checkbox("Acepto que se me notifique por correo electrónico sobre el estado de mi solicitud.", value=st.session_state.get('consent', False))
-
-    # Botón Enviar
-    if st.button("Enviar"):
-        if consent and all([nombres_apellidos, numero_documento, correo]):
-            # Generar el radicado
-            radicado = generar_radicado(id_tipo_solicitud)
-            
-            # Datos para cliente
-            data_cliente = (tipo_identificacion, nombres_apellidos, celular, direccion, departamento, municipio, afiliado_eps, regimen, ips, grupo_poblacional, consent)
-            
-            # Datos para suceso
-            data_suceso = (fecha_solicitud, servicio, colaborador_responsable, fecha_hora_suceso, hora_suceso, descripcion, observaciones, archivo_adjunto.read() if archivo_adjunto else None)
-            
-            # Datos para estado del trámite (ejemplo simplificado)
-            data_estado = (None, fecha_solicitud, None, None, None, None)
-            
-            submit_form(data_cliente, data_suceso, data_estado, radicado)
-
-        else:
-            st.error("Por favor, completa todos los campos obligatorios.")
-
-    # Botón Borrar
-    if st.button("Borrar"):
-        # Limpiar los campos del formulario
-        st.session_state['nombres_apellidos'] = ''
-        st.session_state['numero_documento'] = ''
-        st.session_state['direccion'] = ''
-        st.session_state['celular'] = ''
-        st.session_state['correo'] = ''
-        st.session_state['descripcion'] = ''
-        st.session_state['observaciones'] = ''
-        st.session_state['consent'] = False
+    hora_suceso = st.time_input("Hora del Suceso", value=hora_actual)
+    archivos_adjuntos = st.file_uploader("Adjuntar archivos (Máx. 2MB por archivo)", type=['jpg', 'jpeg', 'png', 'pdf'], accept_multiple_files=True)
+    
+    # Validar tamaño de archivos adjuntos
+    if archivos_adjuntos:
+        for archivo in archivos_adjuntos:
+            if archivo.size > 2 * 1024 * 1024:
+                st.error(f"El archivo {archivo.name} supera el límite de 2MB.")
+                return
+    
+    consent = st.checkbox("Acepto que se me notifique por correo electrónico sobre el estado de mi solicitud")
+    acepto = 1 if consent else 0
+    
+    if st.button("Enviar Solicitud"):
+        if not (nombres_apellidos and numero_documento and direccion and celular and correo and descripcion):
+            st.error("Por favor, complete todos los campos obligatorios.")
+            return
         
-        # Redibujar la página para reflejar los cambios
-        st.rerun()
-
+        datos_cliente = [
+            numero_documento,
+            tipo_identificacion,
+            nombres_apellidos,
+            celular,
+            correo,
+            direccion,
+            departamento,
+            municipio,
+            afiliado_eps,
+            regimen,
+            ips,
+            grupo_poblacional,
+            acepto
+        ]
+        datos_sucesos = (
+            radicado,
+            servicio,
+            responsable,
+            descripcion,
+            observaciones,
+            fecha_hora_suceso,
+            hora_suceso,
+            archivos_adjuntos
+        
+        )
+        radicado = generar_radicado(tipo_solicitud)
+        if radicado:
+            submit_form(datos_cliente, radicado)
+            st.session_state['nombres_apellidos'] = nombres_apellidos
+            st.session_state['numero_documento'] = numero_documento
+            st.session_state['direccion'] = direccion
+            st.session_state['celular'] = celular
+            st.session_state['correo'] = correo
+            st.session_state['descripcion'] = descripcion
+            st.session_state['observaciones'] = observaciones
+            
 if __name__ == "__main__":
     main()

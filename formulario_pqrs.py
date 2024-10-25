@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 # Cargar las variables de entorno desde el archivo .env
 load_dotenv()
-hora_actual = datetime.now().time()
+
 # Acceder a las variables de entorno
 DATABASE_HOST = os.getenv('DATABASE_HOST')
 DATABASE_USER = os.getenv('DATABASE_USER')
@@ -45,11 +45,11 @@ def obtener_hora_actual_colombia():
 # Función para obtener los datos de un campo desplegable
 @st.cache_data
 def fetch_options(query):
-    connection = create_connection()  # Crea la conexión
+    connection = create_connection()
     if connection:
         cursor = connection.cursor()
         cursor.execute(query)
-        results = cursor.fetchall()  # Obtiene todos los resultados
+        results = cursor.fetchall()
         cursor.close()
         connection.close()
         return results
@@ -59,7 +59,7 @@ def fetch_options(query):
 def generar_radicado(tipo_solicitud):
     fecha_actual = datetime.now().strftime("%d%m%Y")
     
-    connection = create_connection()  # Crea la conexión
+    connection = create_connection()
     if connection:
         cursor = connection.cursor()
         query = "SELECT MAX(SUBSTRING(id_rad, 5, 6)) FROM sucesos WHERE id_rad LIKE %s"
@@ -80,8 +80,8 @@ def generar_radicado(tipo_solicitud):
     return None
 
 # Función para enviar datos a la base de datos
-def submit_form(datos_cliente, radicado):
-    connection = create_connection()  # Crea la conexión
+def submit_form(datos_cliente, datos_sucesos):
+    connection = create_connection()
     if connection:
         cursor = connection.cursor()
         try:
@@ -89,15 +89,14 @@ def submit_form(datos_cliente, radicado):
             cursor.execute(""" 
                 INSERT INTO clientes (id_cliente, tipo_id, nombre_completo, nro_celular, email, direccion, departamento, ciudad, afiliado_eps, regimen, afiliado_ips, grupo_poblacional, acepta_notificacion) 
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, tuple(datos_cliente))
+            """, datos_cliente)  # Aquí ya no es necesario convertir a tuple
             
-            # Insertar en la tabla clientes
+            # Insertar en la tabla sucesos
             cursor.execute(""" 
-                INSERT INTO sucesos (id_rad, fecha_rad, ide_servicio, ide_responsabler, fecha, hora, descripcion, observacion, adjunto) 
+                INSERT INTO sucesos (id_rad, fecha_rad, id_servicio, id_responsable, fecha, hora, descripcion, observacion, adjunto) 
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, tuple(datos_cliente))
+            """, datos_sucesos)  # Aquí ya no es necesario convertir a tuple
             
-
             connection.commit()  # Confirma los cambios
             st.success("¡Solicitud enviada exitosamente!")
             
@@ -170,18 +169,12 @@ def main():
     servicio_data = fetch_options("SELECT id_servicio, nombre_serv FROM servicio_disponibles")
     if servicio_data:
         servicio_opciones = {row[1]: row[0] for row in servicio_data}
-
-       # st.write("Opciones de servicios:", servicio_opciones)  # Verifica el diccionario
-
         servicio_seleccionado = st.selectbox("Servicio", list(servicio_opciones.keys()))
-        
         servicio = servicio_opciones[servicio_seleccionado]
     else:
         servicio_seleccionado = None
         st.write("No existen Servicio en la Base de Datos")
 
-    
- 
     # Consulta para obtener los responsables asociados al servicio seleccionado de forma segura
     responsable_data = fetch_options(f"""
     SELECT u.id_usuario, u.nombre 
@@ -191,75 +184,77 @@ def main():
     """)
 
     if responsable_data:
-    # Crear un diccionario con el nombre del responsable como clave y el id_usuario como valor
         responsable_opciones = {row[1]: row[0] for row in responsable_data}
-
-    # Selectbox para seleccionar el responsable
-        responsable_seleccionado = st.selectbox("Responsable", list(responsable_opciones.keys()))
-
-    # Obtener el id_usuario correspondiente al responsable seleccionado
+        responsable_seleccionado = st.selectbox("Responsable de Atención", list(responsable_opciones.keys()))
         responsable = responsable_opciones[responsable_seleccionado]
     else:
         responsable_seleccionado = None
-        st.write("No existen responsables asociados a este servicio.")
+        st.write("No existen Responsables asociados a este servicio.")
 
-    descripcion = st.text_area("Descripción", value=st.session_state.get('descripcion', ''))
-    observaciones = st.text_area("Observaciones", value=st.session_state.get('observaciones', ''))
-    fecha_hora_suceso = st.date_input("Fecha del Suceso", value=datetime.now())
-    hora_suceso = st.time_input("Hora del Suceso", value=hora_actual)
-    archivos_adjuntos = st.file_uploader("Adjuntar archivos (Máx. 2MB por archivo)", type=['jpg', 'jpeg', 'png', 'pdf'], accept_multiple_files=True)
-    
-    # Validar tamaño de archivos adjuntos
-    if archivos_adjuntos:
-        for archivo in archivos_adjuntos:
-            if archivo.size > 2 * 1024 * 1024:
-                st.error(f"El archivo {archivo.name} supera el límite de 2MB.")
-                return
-    
-    consent = st.checkbox("Acepto que se me notifique por correo electrónico sobre el estado de mi solicitud")
-    acepto = 1 if consent else 0
-    
+    fecha_atencion = st.date_input("Fecha de Atención", datetime.today())
+    hora_atencion = st.time_input("Hora del Suceso",obtener_hora_actual_colombia())
+    descripcion = st.text_area("Descripción del Suceso", value=st.session_state.get('descripcion', ''))
+    observacion = st.text_area("Observaciones", value=st.session_state.get('observacion', ''))
+
+    # Carga de archivo
+    archivo_adjunto = st.file_uploader("Adjuntar Archivo", type=['pdf', 'jpg', 'jpeg', 'png'])
+
+    # Si se seleccionó un archivo, se procesa
+    if archivo_adjunto is not None:
+        # Guardar el archivo en el sistema de archivos temporalmente
+        ruta_archivo = f"adjuntos/{archivo_adjunto.name}"
+        with open(ruta_archivo, "wb") as f:
+            f.write(archivo_adjunto.getbuffer())
+
     if st.button("Enviar Solicitud"):
-        if not (nombres_apellidos and numero_documento and direccion and celular and correo and descripcion):
-            st.error("Por favor, complete todos los campos obligatorios.")
-            return
-        
-        datos_cliente = [
-            numero_documento,
-            tipo_identificacion,
-            nombres_apellidos,
-            celular,
-            correo,
-            direccion,
-            departamento,
-            municipio,
-            afiliado_eps,
-            regimen,
-            ips,
-            grupo_poblacional,
-            acepto
-        ]
-        datos_sucesos = (
-            radicado,
-            servicio,
-            responsable,
-            descripcion,
-            observaciones,
-            fecha_hora_suceso,
-            hora_suceso,
-            archivos_adjuntos
-        
-        )
-        radicado = generar_radicado(tipo_solicitud)
-        if radicado:
-            submit_form(datos_cliente, radicado)
-            st.session_state['nombres_apellidos'] = nombres_apellidos
-            st.session_state['numero_documento'] = numero_documento
-            st.session_state['direccion'] = direccion
-            st.session_state['celular'] = celular
-            st.session_state['correo'] = correo
-            st.session_state['descripcion'] = descripcion
-            st.session_state['observaciones'] = observaciones
+        if all([nombres_apellidos, tipo_identificacion, numero_documento, direccion, 
+                 departamento, municipio, celular, correo, afiliado_eps, regimen, 
+                 ips, grupo_poblacional, servicio, responsable, fecha_atencion, 
+                 hora_atencion, descripcion]):
             
+            # Generar el radicado
+            radicado = generar_radicado(tipo_solicitud)
+
+            # Datos del cliente como tupla
+            datos_cliente = (
+                numero_documento,  # El id_cliente se autoincrementa
+                tipo_identificacion,
+                nombres_apellidos,
+                celular,
+                correo,
+                direccion,
+                departamento,
+                municipio,
+                afiliado_eps,
+                regimen,
+                ips,
+                grupo_poblacional,
+                True
+            )
+            
+            # Datos del suceso como tupla
+            datos_sucesos = (
+                radicado,
+                fecha_solicitud,
+                servicio,
+                responsable,
+                fecha_atencion,
+                hora_atencion,
+                descripcion,
+                observacion,
+                ruta_archivo if archivo_adjunto else None  # Ruta del archivo o None
+            )
+
+            # Enviar los datos a la base de datos
+            submit_form(datos_cliente, datos_sucesos)
+
+            for key in ["nombres_apellidos", "numero_documento", "direccion", "celular", "correo", "descripcion", "observacion"]:
+                st.session_state[key] = ""
+            
+            st.rerun()
+
+        else:
+            st.warning("Por favor, complete todos los campos requeridos.")
+
 if __name__ == "__main__":
     main()

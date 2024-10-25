@@ -7,6 +7,7 @@ from mysql.connector import Error
 import os
 from dotenv import load_dotenv
 
+MAX_FILE_SIZE_MB = 2
 # Cargar las variables de entorno desde el archivo .env
 load_dotenv()
 
@@ -16,6 +17,36 @@ DATABASE_USER = os.getenv('DATABASE_USER')
 DATABASE_PASSWORD = os.getenv('DATABASE_PASSWORD')
 DATABASE_NAME = os.getenv('DATABASE_NAME')
 DATABASE_PORT = os.getenv('DATABASE_PORT')
+
+def save_uploaded_file(file, radicado):
+    # Crear la ruta del directorio usando el radicado
+    carpeta_destino = os.path.join("uploads", radicado)
+    if not os.path.exists(carpeta_destino):
+        os.makedirs(carpeta_destino)
+
+    # Ruta del archivo
+    ruta_archivo = os.path.join(carpeta_destino, file.name)
+    
+    # Guardar el archivo en el directorio
+    with open(ruta_archivo, "wb") as f:
+        f.write(file.getbuffer())
+        
+    return ruta_archivo
+
+def process_files_and_save_paths(files, radicado):
+    rutas_archivos = []
+    for file in files:
+        # Verificar tamaño del archivo
+        if file.size > MAX_FILE_SIZE_MB * 1024 * 1024:
+            st.warning(f"El archivo {file.name} supera el límite de {MAX_FILE_SIZE_MB} MB.")
+            continue
+
+        # Guardar archivo y agregar la ruta a la lista
+        ruta_archivo = save_uploaded_file(file, radicado)
+        rutas_archivos.append(ruta_archivo)
+    
+    # Si hay rutas guardadas, convertir en string separado por comas
+    return ",".join(rutas_archivos) if rutas_archivos else None
 
 # Crear conexión a la base de datos MySQL
 def create_connection():
@@ -80,7 +111,7 @@ def generar_radicado(tipo_solicitud):
     return None
 
 # Función para enviar datos a la base de datos
-def submit_form(datos_cliente, datos_sucesos):
+def submit_form(datos_cliente, datos_sucesos, radicado):
     connection = create_connection()
     if connection:
         cursor = connection.cursor()
@@ -98,7 +129,8 @@ def submit_form(datos_cliente, datos_sucesos):
             """, datos_sucesos)  # Aquí ya no es necesario convertir a tuple
             
             connection.commit()  # Confirma los cambios
-            st.success("¡Solicitud enviada exitosamente!")
+            st.success(f"¡Solicitud enviada y radicada!, Nro Radicado: {radicado} ")
+            
             
         except Exception as e:
             connection.rollback()  # Revierte los cambios en caso de error
@@ -197,14 +229,16 @@ def main():
     observacion = st.text_area("Observaciones", value=st.session_state.get('observacion', ''))
 
     # Carga de archivo
-    archivo_adjunto = st.file_uploader("Adjuntar Archivo", type=['pdf', 'jpg', 'jpeg', 'png'])
+    archivo_adjuntos = st.file_uploader("Adjuntar Archivo(s)", type=['pdf', 'jpg', 'jpeg', 'png'], accept_multiple_files=True)
 
-    # Si se seleccionó un archivo, se procesa
-    if archivo_adjunto is not None:
-        # Guardar el archivo en el sistema de archivos temporalmente
-        ruta_archivo = f"adjuntos/{archivo_adjunto.name}"
-        with open(ruta_archivo, "wb") as f:
-            f.write(archivo_adjunto.getbuffer())
+
+   
+            
+    consent = st.checkbox("Acepto que se me notifique por correo electrónico sobre el estado de mi solicitud")
+    if consent:
+        estado = True
+    else:
+        estado = False
 
     if st.button("Enviar Solicitud"):
         if all([nombres_apellidos, tipo_identificacion, numero_documento, direccion, 
@@ -214,6 +248,8 @@ def main():
             
             # Generar el radicado
             radicado = generar_radicado(tipo_solicitud)
+            
+            ruta_adjuntos = process_files_and_save_paths(archivo_adjuntos, radicado) if archivo_adjuntos else None
 
             # Datos del cliente como tupla
             datos_cliente = (
@@ -229,7 +265,7 @@ def main():
                 regimen,
                 ips,
                 grupo_poblacional,
-                True
+                estado
             )
             
             # Datos del suceso como tupla
@@ -242,19 +278,33 @@ def main():
                 hora_atencion,
                 descripcion,
                 observacion,
-                ruta_archivo if archivo_adjunto else None  # Ruta del archivo o None
+                ruta_adjuntos
             )
 
             # Enviar los datos a la base de datos
-            submit_form(datos_cliente, datos_sucesos)
-
-            for key in ["nombres_apellidos", "numero_documento", "direccion", "celular", "correo", "descripcion", "observacion"]:
-                st.session_state[key] = ""
-            
-            st.rerun()
-
+            submit_form(datos_cliente, datos_sucesos, radicado)
+            st.session_state['nombres_apellidos'] = ''
+            st.session_state['numero_documento'] = ''
+            st.session_state['direccion'] = ''
+            st.session_state['celular'] = ''
+            st.session_state['correo'] = ''
+            st.session_state['descripcion'] = ''
+            st.session_state['observaciones'] = ''
+            st.session_state['consent'] = False
         else:
             st.warning("Por favor, complete todos los campos requeridos.")
-
+    if st.button("Borrar"):
+        # Limpiar los campos del formulario
+        st.session_state['nombres_apellidos'] = ''
+        st.session_state['numero_documento'] = ''
+        st.session_state['direccion'] = ''
+        st.session_state['celular'] = ''
+        st.session_state['correo'] = ''
+        st.session_state['descripcion'] = ''
+        st.session_state['observaciones'] = ''
+        st.session_state['consent'] = False
+        
+        # Redibujar la página para reflejar los cambios
+        st.rerun()        
 if __name__ == "__main__":
     main()

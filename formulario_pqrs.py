@@ -18,6 +18,19 @@ DATABASE_PASSWORD = os.getenv('DATABASE_PASSWORD')
 DATABASE_NAME = os.getenv('DATABASE_NAME')
 DATABASE_PORT = os.getenv('DATABASE_PORT')
 
+def obtener_datos_cliente(numero_documento):
+    connection = create_connection()
+    if connection:
+        cursor = connection.cursor()
+        query = "SELECT nombre_completo, nro_celular, email, direccion, departamento, ciudad, afiliado_eps, regimen, afiliado_ips, grupo_poblacional FROM clientes WHERE id_cliente = %s"
+        cursor.execute(query, (numero_documento,))
+        resultado = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        return resultado
+    return None
+
+
 def save_uploaded_file(file, radicado):
     # Crear la ruta del directorio usando el radicado
     carpeta_destino = os.path.join("uploads", radicado)
@@ -116,25 +129,61 @@ def submit_form(datos_cliente, datos_sucesos, radicado):
     if connection:
         cursor = connection.cursor()
         try:
-            # Insertar en la tabla clientes
-            cursor.execute(""" 
+            numero_documento = datos_cliente[0]
+            print(numero_documento)
+            tipo_identificacion = datos_cliente[1]
+            print(tipo_identificacion)
+
+            # Verificamos si el cliente ya existe en la base de datos
+            cursor.execute("""SELECT COUNT(*) FROM clientes WHERE id_cliente = %s AND tipo_id = %s """, (numero_documento, tipo_identificacion))
+            resultado = cursor.fetchone()
+            cliente_existe = resultado[0] if resultado is not None else 0
+
+            if cliente_existe:
+            # Si el cliente ya existe, actualizamos los campos
+                cursor.execute("""
+                UPDATE clientes SET 
+                    nombre_completo = %s, 
+                    nro_celular = %s, 
+                    email = %s, 
+                    direccion = %s, 
+                    departamento = %s, 
+                    ciudad = %s, 
+                    afiliado_eps = %s, 
+                    regimen = %s, 
+                    afiliado_ips = %s, 
+                    grupo_poblacional = %s, 
+                    acepta_notificacion = %s 
+                WHERE tipo_id = %s AND id_cliente = %s
+            """, datos_cliente[3:] + (tipo_identificacion, numero_documento))
+            else:
+            # Si el cliente no existe, insertamos un nuevo registro
+                cursor.execute(""" 
                 INSERT INTO clientes (id_cliente, tipo_id, nombre_completo, nro_celular, email, direccion, departamento, ciudad, afiliado_eps, regimen, afiliado_ips, grupo_poblacional, acepta_notificacion) 
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, datos_cliente)  # Aquí ya no es necesario convertir a tuple
-            
-            # Insertar en la tabla sucesos
+            """, datos_cliente)
+
+        # Insertar en la tabla sucesos independientemente de si el cliente existía o no
             cursor.execute(""" 
-                INSERT INTO sucesos (id_rad, fecha_rad, id_servicio, id_responsable, fecha, hora, descripcion, observacion, adjunto) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, datos_sucesos)  # Aquí ya no es necesario convertir a tuple
+            INSERT INTO sucesos (id_rad, fecha_rad, id_servicio, id_responsable, fecha, hora, descripcion, observacion, adjunto) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, datos_sucesos)
+            connection.commit()  
             
-            connection.commit()  # Confirma los cambios
-            st.success(f"¡Solicitud enviada y radicada!, Nro Radicado: {radicado} ")
+            
+            st.session_state.clear()
+            
+            return True, radicado
+            
+
+            
+            # Recargar la página
+
             
             
         except Exception as e:
             connection.rollback()  # Revierte los cambios en caso de error
-            st.error(f"Error al enviar la solicitud: {str(e)}")
+            return False, str(e)
         finally:
             cursor.close()
             connection.close()
@@ -154,13 +203,64 @@ def main():
     tipo_solicitud = tipo_solicitud_seleccionado.split(" - ")[0]
 
     st.subheader("Datos del Cliente")
-    nombres_apellidos = st.text_input("Nombre(s) y Apellidos", value=st.session_state.get('nombres_apellidos', ''))
+    
     tipo_identificacion_data = fetch_options("SELECT id_tipo_doc, nombre_tipo_doc FROM tipo_documento")
     tipo_identificacion_opciones = {row[1]: row[0] for row in tipo_identificacion_data}
     tipo_identificacion_seleccionado = st.selectbox("Tipo de Identificación", list(tipo_identificacion_opciones.keys()))
     tipo_identificacion = tipo_identificacion_opciones[tipo_identificacion_seleccionado]
     
     numero_documento = st.text_input("Número de Documento", value=st.session_state.get('numero_documento', ''))
+    
+    if numero_documento:
+        datos_cliente = obtener_datos_cliente(numero_documento)
+        if datos_cliente:
+            st.session_state.nombres_apellidos = datos_cliente[0]
+            st.session_state.celular = datos_cliente[1]
+            st.session_state.correo = datos_cliente[2]
+            st.session_state.direccion = datos_cliente[3]
+            st.session_state.departamento = datos_cliente[4]
+            st.session_state.ciudad = datos_cliente[5]
+            st.session_state.afiliado_eps = datos_cliente[6]
+            st.session_state.regimen = datos_cliente[7]
+            st.session_state.afiliado_ips = datos_cliente[8]
+            st.session_state.grupo_poblacional = datos_cliente[9]
+
+            # Actualiza los valores de los inputs
+            nombres_apellidos = st.session_state.nombres_apellidos
+            celular = st.session_state.celular
+            correo = st.session_state.correo
+            direccion = st.session_state.direccion
+            departamento = st.session_state.departamento
+            ciudad = st.session_state.ciudad
+            afiliado_eps = st.session_state.afiliado_eps
+            regimen = st.session_state.regimen
+            afiliado_ips = st.session_state.afiliado_ips
+            grupo_poblacional = st.session_state.grupo_poblacional
+        else:
+            st.session_state.nombres_apellidos = ''
+            st.session_state.celular = ''
+            st.session_state.correo = ''
+            st.session_state.direccion = ''
+            st.session_state.departamento = ''
+            st.session_state.ciudad = ''
+            st.session_state.afiliado_eps = ''
+            st.session_state.regimen = ''
+            st.session_state.afiliado_ips = ''
+            st.session_state.grupo_poblacional = ''
+            
+            nombres_apellidos = st.session_state.nombres_apellidos
+            celular = st.session_state.celular
+            correo = st.session_state.correo
+            direccion = st.session_state.direccion
+            departamento = st.session_state.departamento
+            ciudad = st.session_state.ciudad
+            afiliado_eps = st.session_state.afiliado_eps
+            regimen = st.session_state.regimen
+            afiliado_ips = st.session_state.afiliado_ips
+            grupo_poblacional = st.session_state.grupo_poblacional
+        
+    nombres_apellidos = st.text_input("Nombre(s) y Apellidos", value=st.session_state.get('nombres_apellidos', ''))
+    
     direccion = st.text_input("Dirección de Residencia", value=st.session_state.get('direccion', ''))
     
     departamento_data = fetch_options("SELECT id_departamento, nombre_dep FROM departamento")
@@ -253,7 +353,7 @@ def main():
 
             # Datos del cliente como tupla
             datos_cliente = (
-                numero_documento,  # El id_cliente se autoincrementa
+                numero_documento,  
                 tipo_identificacion,
                 nombres_apellidos,
                 celular,
@@ -282,29 +382,56 @@ def main():
             )
 
             # Enviar los datos a la base de datos
-            submit_form(datos_cliente, datos_sucesos, radicado)
-            st.session_state['nombres_apellidos'] = ''
-            st.session_state['numero_documento'] = ''
-            st.session_state['direccion'] = ''
-            st.session_state['celular'] = ''
-            st.session_state['correo'] = ''
-            st.session_state['descripcion'] = ''
-            st.session_state['observaciones'] = ''
-            st.session_state['consent'] = False
+            exito, mensaje = submit_form(datos_cliente, datos_sucesos, radicado)
+            
+            if exito:
+                st.success(f"¡Solicitud enviada y radicada! Nro Radicado: {mensaje}")
+                # Preguntar si desea enviar otro radicado
+                
+              
+            else:
+                st.error(f"Error al enviar la solicitud: {mensaje}")
+
         else:
             st.warning("Por favor, complete todos los campos requeridos.")
     if st.button("Borrar"):
-        # Limpiar los campos del formulario
-        st.session_state['nombres_apellidos'] = ''
-        st.session_state['numero_documento'] = ''
-        st.session_state['direccion'] = ''
-        st.session_state['celular'] = ''
-        st.session_state['correo'] = ''
-        st.session_state['descripcion'] = ''
-        st.session_state['observaciones'] = ''
-        st.session_state['consent'] = False
+        st.session_state.numero_documento = ''
+        st.session_state.nombres_apellidos = ''
+        st.session_state.celular = ''
+        st.session_state.correo = ''
+        st.session_state.direccion = ''
+        st.session_state.departamento = ''
+        st.session_state.ciudad = ''
+        st.session_state.afiliado_eps = ''
+        st.session_state.regimen = ''
+        st.session_state.afiliado_ips = ''
+        st.session_state.grupo_poblacional = ''
+            
+        nombres_apellidos = st.session_state.nombres_apellidos
+        celular = st.session_state.celular
+        correo = st.session_state.correo
+        direccion = st.session_state.direccion
+        departamento = st.session_state.departamento
+        ciudad = st.session_state.ciudad
+        afiliado_eps = st.session_state.afiliado_eps
+        regimen = st.session_state.regimen
+        afiliado_ips = st.session_state.afiliado_ips
+        grupo_poblacional = st.session_state.grupo_poblacional
         
-        # Redibujar la página para reflejar los cambios
-        st.rerun()        
+        st.rerun()
+        if st.button("Cancelar"):
+            st.session_state.numero_documento = ''
+            st.session_state.nombres_apellidos = ''
+            st.session_state.celular = ''
+            st.session_state.correo = ''
+            st.session_state.direccion = ''
+            st.session_state.departamento = ''
+            st.session_state.ciudad = ''
+            st.session_state.afiliado_eps = ''
+            st.session_state.regimen = ''
+            st.session_state.afiliado_ips = ''
+            st.session_state.grupo_poblacional = ''
+            
+               
 if __name__ == "__main__":
     main()

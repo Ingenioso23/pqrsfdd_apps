@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 import mysql.connector
 from mysql.connector import Error
@@ -124,7 +124,7 @@ def generar_radicado(tipo_solicitud):
     return None
 
 # Función para enviar datos a la base de datos
-def submit_form(datos_cliente, datos_sucesos, radicado):
+def submit_form(datos_cliente, datos_sucesos, datos_tramite,  radicado):
     connection = create_connection()
     if connection:
         cursor = connection.cursor()
@@ -155,7 +155,7 @@ def submit_form(datos_cliente, datos_sucesos, radicado):
                     grupo_poblacional = %s, 
                     acepta_notificacion = %s 
                 WHERE tipo_id = %s AND id_cliente = %s
-            """, datos_cliente[3:] + (tipo_identificacion, numero_documento))
+            """, datos_cliente[2:] + (tipo_identificacion, numero_documento))
             else:
             # Si el cliente no existe, insertamos un nuevo registro
                 cursor.execute(""" 
@@ -168,6 +168,16 @@ def submit_form(datos_cliente, datos_sucesos, radicado):
             INSERT INTO sucesos (id_rad, fecha_rad, id_servicio, id_responsable, fecha, hora, descripcion, observacion, adjunto) 
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, datos_sucesos)
+        
+        # Insertar en la tabla tramite independientemente de si el cliente existía o no.add
+            cursor.execute("""
+                       INSERT INTO estado_del_tramite (radicado, id_solicitud, fecha_vencimiento, id_usuario, id_tipo_estado, fecha_respuesta, adjunto_res)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)
+                       """, datos_tramite)
+        
+            
+            
+            
             connection.commit()  
             
             
@@ -350,7 +360,7 @@ def main():
             radicado = generar_radicado(tipo_solicitud)
             
             ruta_adjuntos = process_files_and_save_paths(archivo_adjuntos, radicado) if archivo_adjuntos else None
-
+            fecha_vencimiento = fecha_solicitud + timedelta(days=5)
             # Datos del cliente como tupla
             datos_cliente = (
                 numero_documento,  
@@ -380,9 +390,19 @@ def main():
                 observacion,
                 ruta_adjuntos
             )
+            
+            datos_tramite = (
+                radicado,
+                tipo_solicitud,
+                fecha_vencimiento,
+                responsable,
+                1,
+                None,
+                None
+            )
 
             # Enviar los datos a la base de datos
-            exito, mensaje = submit_form(datos_cliente, datos_sucesos, radicado)
+            exito, mensaje = submit_form(datos_cliente, datos_sucesos, datos_tramite, radicado)
             
             if exito:
                 st.success(f"¡Solicitud enviada y radicada! Nro Radicado: {mensaje}")

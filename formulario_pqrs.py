@@ -6,10 +6,14 @@ import mysql.connector
 from mysql.connector import Error
 import os
 from dotenv import load_dotenv
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 MAX_FILE_SIZE_MB = 2
 # Cargar las variables de entorno desde el archivo .env
 load_dotenv()
+
 
 # Acceder a las variables de entorno
 DATABASE_HOST = os.getenv('DATABASE_HOST')
@@ -17,6 +21,34 @@ DATABASE_USER = os.getenv('DATABASE_USER')
 DATABASE_PASSWORD = os.getenv('DATABASE_PASSWORD')
 DATABASE_NAME = os.getenv('DATABASE_NAME')
 DATABASE_PORT = os.getenv('DATABASE_PORT')
+
+#Para Correo
+SMTP_HOST = os.getenv('SMTP_HOST')
+SMTP_PORT = os.getenv('SMTP_PORT')
+SMTP_USER = os.getenv('SMTP_USER')
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
+
+def enviar_correo(destinatario, asunto, mensaje):
+    # Crear el mensaje de correo
+    msg = MIMEMultipart()
+    msg['From'] = SMTP_USER
+    msg['To'] = destinatario
+    msg['Subject'] = asunto
+    msg.attach(MIMEText(mensaje, 'plain'))
+
+    # Enviar el correo
+    try:
+        print("Entro por el TRY")
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            print("entro al with")
+            server.starttls()  # Inicia la conexión segura
+            server.login(SMTP_USER, SMTP_PASSWORD)  # Inicia sesión
+            server.sendmail(SMTP_USER, destinatario, msg.as_string())  # Envía el correo
+        return True
+    except Exception as e:
+        print("Entro por el Except")
+        print(f"Error al enviar correo a {destinatario}: {e}")
+        return False
 
 def obtener_datos_cliente(numero_documento):
     connection = create_connection()
@@ -133,6 +165,8 @@ def submit_form(datos_cliente, datos_sucesos, datos_tramite,  radicado):
             print(numero_documento)
             tipo_identificacion = datos_cliente[1]
             print(tipo_identificacion)
+            email = datos_cliente[4]
+            print(email)
 
             # Verificamos si el cliente ya existe en la base de datos
             cursor.execute("""SELECT COUNT(*) FROM clientes WHERE id_cliente = %s AND tipo_id = %s """, (numero_documento, tipo_identificacion))
@@ -174,7 +208,21 @@ def submit_form(datos_cliente, datos_sucesos, datos_tramite,  radicado):
                        INSERT INTO estado_del_tramite (radicado, id_solicitud, fecha_vencimiento, id_usuario, id_tipo_estado, fecha_respuesta, adjunto_res)
                        VALUES (%s, %s, %s, %s, %s, %s, %s)
                        """, datos_tramite)
-        
+        # Tras registrar la solicitud, enviar notificaciones por correo
+            correo_cliente = datos_cliente[4]  # Asume que el correo del cliente está en la posición 4 de datos_cliente
+            mensaje_cliente = f"Solicitud enviada, su número de radicado es {radicado}"
+            enviar_correo(correo_cliente, "Confirmación de solicitud PQRSFDD", mensaje_cliente)
+
+            # Obtener el correo del usuario responsable desde la tabla de usuarios
+            cursor.execute("SELECT correo FROM usuarios WHERE id_usuario = %s", (datos_sucesos[3],))
+            correo_responsable = cursor.fetchone()[0]
+            mensaje_responsable = (
+                f"Tiene una solicitud pendiente por responder con número de radicado {radicado}. "
+                f"Ingrese al sistema en https://sistema-pqrsfdd.streamlit.app/"
+            )
+            enviar_correo(correo_responsable, "Nueva solicitud pendiente en PQRSFDD", mensaje_responsable)
+
+            connection.commit()     
             
             
             

@@ -340,11 +340,12 @@ def main():
     
     afiliado_eps = eps_opciones[eps_seleccionado]
     # print(afiliado_eps)
-
-    regimen_data = fetch_options("SELECT id_regimen, nombre_reg FROM regimen")
-    regimen_opciones = {row[1]: row[0] for row in regimen_data}
-    regimen_seleccionado = st.selectbox("Régimen", list(regimen_opciones.keys()))
-    regimen = regimen_opciones[regimen_seleccionado]
+    if afiliado_eps != "EPS000":
+        regimen_data = fetch_options("SELECT id_regimen, nombre_reg FROM regimen")
+        regimen_opciones = {row[1]: row[0] for row in regimen_data}
+        regimen_seleccionado = st.selectbox("Régimen", list(regimen_opciones.keys()))
+        regimen = regimen_opciones[regimen_seleccionado]
+    
     if afiliado_eps == "EPS000":
         ips_data = fetch_options("SELECT id_ips, nombre_ips FROM ips")
         ips_opciones = {row[1]: row[0] for row in ips_data}

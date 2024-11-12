@@ -337,17 +337,19 @@ def main():
     eps_data = fetch_options("SELECT id_eps, nombre_eps FROM eps")
     eps_opciones = {row[1]: row[0] for row in eps_data}
     eps_seleccionado = st.selectbox("Afiliado a la EPS", list(eps_opciones.keys()))
+    
     afiliado_eps = eps_opciones[eps_seleccionado]
+    # print(afiliado_eps)
 
     regimen_data = fetch_options("SELECT id_regimen, nombre_reg FROM regimen")
     regimen_opciones = {row[1]: row[0] for row in regimen_data}
     regimen_seleccionado = st.selectbox("Régimen", list(regimen_opciones.keys()))
     regimen = regimen_opciones[regimen_seleccionado]
-
-    ips_data = fetch_options("SELECT id_ips, nombre_ips FROM ips")
-    ips_opciones = {row[1]: row[0] for row in ips_data}
-    ips_seleccionado = st.selectbox("Organismo de Salud IPS", list(ips_opciones.keys()), index=0)
-    ips = ips_opciones[ips_seleccionado]
+    if afiliado_eps == "EPS000":
+        ips_data = fetch_options("SELECT id_ips, nombre_ips FROM ips")
+        ips_opciones = {row[1]: row[0] for row in ips_data}
+        ips_seleccionado = st.selectbox("Organismo de Salud IPS", list(ips_opciones.keys()), index=0)
+        ips = ips_opciones[ips_seleccionado]
 
     grupo_poblacional_data = fetch_options("SELECT id_grupo, nombre_pob FROM grupo_poblacional")
     grupo_poblacional_opciones = {row[1]: row[0] for row in grupo_poblacional_data}
@@ -389,9 +391,6 @@ def main():
     # Carga de archivo
     archivo_adjuntos = st.file_uploader("Adjuntar Archivo(s)", type=['pdf', 'jpg', 'jpeg', 'png'], accept_multiple_files=True)
 
-
-   
-            
     consent = st.checkbox("Acepto que se me notifique por correo electrónico sobre el estado de mi solicitud")
     if consent:
         estado = True

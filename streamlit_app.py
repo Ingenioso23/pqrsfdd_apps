@@ -159,8 +159,8 @@ def recover_password(email):
         try:
             token = generate_recovery_token(email)
             # Cambiar la URL al dominio y endpoint reales
-            reset_link = f"https://sistema-pqrsfdd.streamlit.app/reset_password?token={token}"
-            message = f"Haz clic en el siguiente enlace para restablecer tu contraseña:\n\n{reset_link}"
+            reset_link = f"https://recuperarpass.streamlit.app/reset_password?token={token}"
+            message = f"Haz clic en el siguiente enlace para restablecer tu contraseña:\n\n{reset_link}\n\n Token: {token}"
             send_email(email, "Recuperación de Contraseña", message)
             st.success(f"Se ha enviado un enlace de recuperación de contraseña a {email}.")
         except Exception as e:

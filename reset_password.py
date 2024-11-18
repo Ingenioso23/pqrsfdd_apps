@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 
+
 st.title("Restablecer Contraseña")
 
 token = st.text_input("Ingresa el token recibido:")

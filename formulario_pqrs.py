@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-
+LOGO_PATH = "logo_clinivida.jpg"
 MAX_FILE_SIZE_MB = 2
 # Cargar las variables de entorno desde el archivo .env
 load_dotenv()
@@ -248,6 +248,7 @@ def submit_form(datos_cliente, datos_sucesos, datos_tramite,  radicado):
 
 # Función principal para mostrar el formulario
 def main():
+    st.image(LOGO_PATH, width=300) 
     st.header("FORMULARIO DE SOLICITUD PQRSFDD")
 
     st.subheader("Información de la Solicitud")

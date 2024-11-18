@@ -2,6 +2,7 @@ import streamlit as st
 from database import create_connection
 from mysql.connector import Error
 import bcrypt
+import pandas as pd
 
 
 def user_management_page():
@@ -134,17 +135,35 @@ def eliminar_usuario():
 
 
 # Función para ver todos los usuarios
+
+
 def ver_usuarios():
     st.subheader("Lista de Usuarios")
     try:
-        conn = create_connection()
+        conn = create_connection()  # Función para crear conexión a la base de datos
         cursor = conn.cursor()
         cursor.execute("SELECT id_usuario, nombre, correo, rol_id, Estado_u FROM usuarios")
         usuarios = cursor.fetchall()
+        
         if usuarios:
+            # Crear una lista para almacenar los datos procesados
+            data = []
             for usuario in usuarios:
-                rol_nombre = get_rol_nombre(usuario[3])
-                st.write(f"Documento: {usuario[0]}, Nombre: {usuario[1]}, Correo: {usuario[2]}, Rol: {rol_nombre}, Estado: {'Activo' if usuario[4] == 1 else 'Inactivo'}")
+                rol_nombre = get_rol_nombre(usuario[3])  # Función para obtener el nombre del rol
+                estado = "Activo" if usuario[4] == 1 else "Inactivo"
+                data.append({
+                    "Documento": usuario[0],
+                    "Nombre": usuario[1],
+                    "Correo": usuario[2],
+                    "Rol": rol_nombre,
+                    "Estado": estado
+                })
+            
+            # Convertir los datos a un DataFrame de pandas
+            df = pd.DataFrame(data)
+            
+            # Mostrar los datos en formato de tabla
+            st.table(df)  # Cambia a st.dataframe(df) si prefieres una tabla interactiva
         else:
             st.info("No hay usuarios registrados.")
     except Error as e:
@@ -153,7 +172,6 @@ def ver_usuarios():
         if conn:
             cursor.close()
             conn.close()
-
 
 # Función para actualizar un usuario
 def actualizar_usuario(id_usuario, nombre, correo, rol):

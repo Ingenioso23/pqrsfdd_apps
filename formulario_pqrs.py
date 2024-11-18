@@ -38,15 +38,15 @@ def enviar_correo(destinatario, asunto, mensaje):
 
     # Enviar el correo
     try:
-        print("Entro por el TRY")
+        # print("Entro por el TRY")
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            print("entro al with")
+             # print("entro al with")
             server.starttls()  # Inicia la conexión segura
             server.login(SMTP_USER, SMTP_PASSWORD)  # Inicia sesión
             server.sendmail(SMTP_USER, destinatario, msg.as_string())  # Envía el correo
         return True
     except Exception as e:
-        print("Entro por el Except")
+        # print("Entro por el Except")
         print(f"Error al enviar correo a {destinatario}: {e}")
         return False
 
@@ -162,11 +162,11 @@ def submit_form(datos_cliente, datos_sucesos, datos_tramite,  radicado):
         cursor = connection.cursor()
         try:
             numero_documento = datos_cliente[0]
-            print(numero_documento)
+            # print(numero_documento)
             tipo_identificacion = datos_cliente[1]
-            print(tipo_identificacion)
+            # print(tipo_identificacion)
             email = datos_cliente[4]
-            print(email)
+            # print(email)
 
             # Verificamos si el cliente ya existe en la base de datos
             cursor.execute("""SELECT COUNT(*) FROM clientes WHERE id_cliente = %s AND tipo_id = %s """, (numero_documento, tipo_identificacion))
@@ -199,8 +199,8 @@ def submit_form(datos_cliente, datos_sucesos, datos_tramite,  radicado):
 
         # Insertar en la tabla sucesos independientemente de si el cliente existía o no
             cursor.execute(""" 
-            INSERT INTO sucesos (id_rad, fecha_rad, id_servicio, id_responsable, fecha, hora, descripcion, observacion, adjunto) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO sucesos (id_rad, id_cliente, fecha_rad, id_servicio, id_responsable, fecha, hora, descripcion, observacion, adjunto) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, datos_sucesos)
         
         # Insertar en la tabla tramite independientemente de si el cliente existía o no.add
@@ -341,17 +341,19 @@ def main():
     
     afiliado_eps = eps_opciones[eps_seleccionado]
     # print(afiliado_eps)
-    if afiliado_eps != "EPS000":
-        regimen_data = fetch_options("SELECT id_regimen, nombre_reg FROM regimen")
-        regimen_opciones = {row[1]: row[0] for row in regimen_data}
-        regimen_seleccionado = st.selectbox("Régimen", list(regimen_opciones.keys()))
-        regimen = regimen_opciones[regimen_seleccionado]
+   
+    regimen_data = fetch_options("SELECT id_regimen, nombre_reg FROM regimen")
+    regimen_opciones = {row[1]: row[0] for row in regimen_data}
+    regimen_seleccionado = st.selectbox("Régimen", list(regimen_opciones.keys()))
+    regimen = regimen_opciones[regimen_seleccionado]
+
     
-    if afiliado_eps == "EPS000":
-        ips_data = fetch_options("SELECT id_ips, nombre_ips FROM ips")
-        ips_opciones = {row[1]: row[0] for row in ips_data}
-        ips_seleccionado = st.selectbox("Organismo de Salud IPS", list(ips_opciones.keys()), index=0)
-        ips = ips_opciones[ips_seleccionado]
+   
+    ips_data = fetch_options("SELECT id_ips, nombre_ips FROM ips")
+    ips_opciones = {row[1]: row[0] for row in ips_data}
+    ips_seleccionado = st.selectbox("Organismo de Salud IPS", list(ips_opciones.keys()), index=0)
+    ips = ips_opciones[ips_seleccionado]
+
 
     grupo_poblacional_data = fetch_options("SELECT id_grupo, nombre_pob FROM grupo_poblacional")
     grupo_poblacional_opciones = {row[1]: row[0] for row in grupo_poblacional_data}
@@ -400,10 +402,9 @@ def main():
         estado = False
 
     if st.button("Enviar Solicitud"):
-        if all([nombres_apellidos, tipo_identificacion, numero_documento, direccion, 
-                 departamento, municipio, celular, correo, afiliado_eps, regimen, 
-                 ips, grupo_poblacional, servicio, responsable, fecha_atencion, 
-                 hora_atencion, descripcion]):
+        # Validación de campos obligatorios
+    
+        if all([nombres_apellidos,numero_documento, direccion, celular, correo, descripcion]):
             
             # Generar el radicado
             radicado = generar_radicado(tipo_solicitud)
@@ -430,6 +431,7 @@ def main():
             # Datos del suceso como tupla
             datos_sucesos = (
                 radicado,
+                numero_documento,
                 fecha_solicitud,
                 servicio,
                 responsable,
@@ -459,6 +461,8 @@ def main():
                 
               
             else:
+            
+            
                 st.error(f"Error al enviar la solicitud: {mensaje}")
 
         else:

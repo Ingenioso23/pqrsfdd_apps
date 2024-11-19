@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly
 import plotly.express as px
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -8,7 +9,7 @@ from datetime import datetime
 from database import create_connection
 
 # Función para crear la conexión a la base de datos
-
+print(plotly.__version__)
 
 # Función para obtener el número total de solicitudes
 def get_total_requests():

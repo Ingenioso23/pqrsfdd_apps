@@ -272,7 +272,7 @@ def main():
     
     if numero_documento:
         datos_cliente = obtener_datos_cliente(numero_documento)
-        if datos_cliente:
+        if datos_cliente is not None:
             st.session_state.nombres_apellidos = datos_cliente[0]
             st.session_state.celular = datos_cliente[1]
             st.session_state.correo = datos_cliente[2]

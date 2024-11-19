@@ -10,7 +10,7 @@ def user_management_page():
 
     # Crear un menú de navegación
     menu = ["Inicio", "Crear Usuario", "Modificar Usuario", "Activar/Desactivar Usuario", "Eliminar Usuario", "Ver Usuarios"]
-    choice = st.sidebar.selectbox("Menú", menu)
+    choice = st.sidebar.selectbox("Menú Usuarios", menu)
 
     if choice == "Inicio":
         st.subheader("Bienvenido a la Gestión de Usuarios")

@@ -5,7 +5,7 @@ from database import create_connection
 
 # Función para crear la conexión a la base de datos
 # (Debes incluir tu lógica para `create_connection`)
-
+COLORS = ["#b9d45b", "#e0ecac", "#bba8c5", "#623e77", "#908895"]
 # Layout y estilo del dashboard
 st.set_page_config(
     page_title="Dashboard PQRSFDD",
@@ -129,6 +129,32 @@ def solicitudes_ven():
     total_vencida = df["total"].iloc[0]
     return int(total_vencida)
 
+def get_requests_by_month_and_type():
+    conn = create_connection()  # Conexión a tu base de datos
+    query = """
+        SELECT 
+            MONTH(sucesos.fecha_rad) AS mes,
+            tipo_solicitud.nombre_sol AS tipo_solicitud,
+            COUNT(*) AS total_solicitudes
+        FROM sucesos
+        JOIN estado_del_tramite ON sucesos.id_rad = estado_del_tramite.radicado
+        JOIN tipo_solicitud ON estado_del_tramite.id_solicitud = tipo_solicitud.id_solicitud
+        GROUP BY MONTH(sucesos.fecha_rad), tipo_solicitud.nombre_sol
+        ORDER BY MONTH(sucesos.fecha_rad), tipo_solicitud.nombre_sol;
+
+    """
+    df = pd.read_sql(query, conn)
+    conn.close()
+
+    # Mapear números de mes a nombres de mes
+    meses = {
+        1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
+        5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
+        9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+    }
+    df["Mes"] = df["mes"].map(meses)  # Reemplaza el número de mes por su nombre
+    return df[["Mes", "tipo_solicitud", "total_solicitudes"]]  # Devolver columnas necesarias
+
 
 def tiempo_promedio_respuesta():
     """
@@ -155,6 +181,25 @@ def tiempo_promedio_respuesta():
     
     # Retornar el promedio como entero
     return round(df["tiempo_promedio"].iloc[0], 2)  # Redondear a 2 decimales
+
+def get_response_times_by_type():
+    conn = create_connection()  # Conexión a la base de datos
+    query = """
+        SELECT 
+            tipo_solicitud.nombre_sol AS tipo_solicitud,
+            AVG(DATEDIFF(estado_del_tramite.fecha_respuesta, sucesos.fecha_rad)) AS tiempo_promedio
+        FROM sucesos
+        JOIN estado_del_tramite ON sucesos.id_rad = estado_del_tramite.radicado
+        JOIN tipo_solicitud ON estado_del_tramite.id_solicitud = tipo_solicitud.id_solicitud
+        WHERE estado_del_tramite.id_tipo_estado = 3  -- Solo solicitudes contestadas
+        GROUP BY tipo_solicitud.nombre_sol
+        ORDER BY tipo_solicitud.nombre_sol;
+    """
+    df = pd.read_sql(query, conn)
+    conn.close()
+
+    return df  # DataFrame con columnas: tipo_solicitud, tiempo_promedio
+
 
 # Diseño del dashboard
 def kpis_page():
@@ -188,8 +233,8 @@ def kpis_page():
             x='nombre_sol',
             y='total',
             title="Solicitudes por Tipo",
-            color='total',
-            color_continuous_scale="Viridis"
+            color='nombre_sol',
+            color_discrete_sequence=COLORS
         )
         
         # Personalizar el layout para ajustar el eje y
@@ -214,37 +259,73 @@ def kpis_page():
             df_status,
             names='nombre_estado',
             values='total',
-            title="Estado de las Solicitudes"
+            title="Estado de las Solicitudes",
+            color_discrete_sequence=COLORS
         )
         st.plotly_chart(fig2, use_container_width=True)
 
     # Tercera fila: Más visualizaciones
     col3, col4 = st.columns(2)
     with col3:
-        st.subheader("Solicitudes por Mes")
-        df_requests_by_month = pd.DataFrame({
-            "Mes": ["Enero", "Febrero", "Marzo", "Abril"],
-            "Solicitudes": [200, 180, 220, 250]
-        })
-        fig3 = px.line(df_requests_by_month, x="Mes", y="Solicitudes", title="Solicitudes Mensuales")
+        st.subheader("Solicitudes por Mes y Tipo")
+
+        # Obtener datos de la base de datos
+        df_requests_by_month_and_type = get_requests_by_month_and_type()
+
+        # Crear la gráfica usando los datos de la base de datos
+        fig3 = px.bar(
+            df_requests_by_month_and_type,
+            x="Mes",
+            y="total_solicitudes",
+            color="tipo_solicitud",  # Agrupación por tipo de solicitud
+            title="Solicitudes Mensuales por Tipo",
+            labels={"total_solicitudes": "Solicitudes", "tipo_solicitud": "Tipo de Solicitud"},
+            color_discrete_sequence=COLORS,
+            barmode="stack"  # Barras apiladas
+        )
+
+        # Configuración del eje Y
+        fig3.update_layout(
+            yaxis=dict(
+                tickmode='linear',    # Configurar el modo de ticks como lineal
+                tick0=0,              # El primer tick será 0
+                dtick=1,              # Incrementos de 1 entre ticks
+            )
+        )
+
+        # Mostrar la gráfica en Streamlit
         st.plotly_chart(fig3, use_container_width=True)
 
     with col4:
         st.subheader("Tiempos Promedio por Tipo")
-        df_response_times = pd.DataFrame({
-            "Tipo": ["Consulta", "Queja", "Petición"],
-            "Tiempo Promedio": [2.3, 4.5, 3.2]
-        })
-        fig4 = px.bar(df_response_times, x="Tipo", y="Tiempo Promedio", title="Tiempos de Respuesta")
+
+        # Obtener datos de la base de datos
+        df_response_times = get_response_times_by_type()
+
+        # Crear la gráfica usando los datos de la base de datos
+        fig4 = px.bar(
+            df_response_times,
+            x="tipo_solicitud",  # Eje X: Tipo de Solicitud
+            y="tiempo_promedio",  # Eje Y: Tiempo Promedio
+            title="Tiempos de Respuesta por Tipo",
+            labels={"tipo_solicitud": "Tipo de Solicitud", "tiempo_promedio": "Tiempo Promedio (días)"},
+            color="tipo_solicitud",  # Colores basados en el valor del tiempo promedio
+            color_discrete_sequence=COLORS
+        )
+
+        # Configurar el eje Y
+        fig4.update_layout(
+            yaxis=dict(
+                tickmode='linear',    # Modo de ticks lineal
+                tick0=0,              # Comienza desde 0
+                dtick=1               # Incrementos de 1
+            )
+        )
+
+        # Mostrar la gráfica en Streamlit
         st.plotly_chart(fig4, use_container_width=True)
+
 
     # Agregar un botón para cerrar sesión
     if st.button("Cerrar Sesión"):
         st.session_state['page'] = 'login'
-
-# Ejecutar la página principal del dashboard
-#
-
-# Llamar la función para mostrar la página de KPIs
-# if __name__ == "__main__":
-  #  kpis_page()

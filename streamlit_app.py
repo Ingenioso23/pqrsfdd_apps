@@ -12,7 +12,51 @@ import jwt
 import datetime
 from Funciones import config_user, config_form, config_reques, config_report, config_kpis
 
+
+
+# Backend para manejar la solicitud de cambio de contraseña
+from fastapi import FastAPI, HTTPException, Body
+from pydantic import BaseModel
+
 load_dotenv()
+app = FastAPI()
+
+# Modelo de solicitud de cambio de contraseña
+class ResetPasswordRequest(BaseModel):
+    token: str
+    newPassword: str
+
+@app.post("/reset_password")
+def reset_password(request: ResetPasswordRequest):
+    try:
+        # Decodificar el token y verificar la validez
+        secret_key = "ipfo bzdz lwhq xsvt"
+        decoded_token = jwt.decode(request.token, secret_key, algorithms=["HS256"])
+        email = decoded_token['email']
+
+        # Verificar que la contraseña sea segura (esto puede personalizarse)
+        if len(request.newPassword) < 8:
+            raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 8 caracteres.")
+        
+        # Conectar a la base de datos y actualizar la contraseña
+        conn = create_connection()
+        cursor = conn.cursor()
+        hashed_password = bcrypt.hashpw(request.newPassword.encode('utf-8'), bcrypt.gensalt())
+        
+        cursor.execute("UPDATE usuarios SET contraseña = %s WHERE correo = %s", (hashed_password, email))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return {"message": "Contraseña actualizada con éxito."}
+    
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=400, detail="El token ha expirado.")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=400, detail="Token inválido.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error al actualizar la contraseña.")
+
 
 def local_css(file_name):
     with open(file_name) as f:
@@ -152,21 +196,33 @@ def recover_password(email):
     cursor = conn.cursor()
     cursor.execute("SELECT correo FROM usuarios WHERE correo = %s", (email,))
     user = cursor.fetchone()
-    cursor.close()
-    conn.close()
 
     if user:
         try:
+            # Generar el token de recuperación
             token = generate_recovery_token(email)
+            
+            # Guardar el token en la base de datos
+            cursor.execute("UPDATE usuarios SET token_val = %s WHERE correo = %s", (token, email))
+            conn.commit()
+
             # Cambiar la URL al dominio y endpoint reales
             reset_link = f"https://recuperarpass.streamlit.app/reset_password?token={token}"
             message = f"Haz clic en el siguiente enlace para restablecer tu contraseña:\n\n{reset_link}\n\n Token: {token}"
+            
+            # Enviar el correo con el token
             send_email(email, "Recuperación de Contraseña", message)
             st.success(f"Se ha enviado un enlace de recuperación de contraseña a {email}.")
         except Exception as e:
             st.error(f"Error al generar el enlace de recuperación: {e}")
+            
+        finally:
+            cursor.close()  # Asegúrate de que estos estén correctamente alineados
+            conn.close()    # Asegúrate de que estos estén correctamente alineados
     else:
         st.error("El correo electrónico no está registrado.")
+    
+
 
 # Función para mostrar el formulario de inicio de sesión
 def login_page():

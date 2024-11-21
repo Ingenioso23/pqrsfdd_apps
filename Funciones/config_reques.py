@@ -3,8 +3,9 @@ import pandas as pd
 import mysql.connector
 from database import create_connection
 
-# Página de solicitudes
+# Función principal de la página de solicitudes
 def requests_page():
+    # Título y subtítulo
     st.title("Gestión de Solicitudes")
     st.subheader("Visualización y Gestión de Solicitudes")
 
@@ -38,49 +39,55 @@ def requests_page():
     # Convertir los datos a un DataFrame
     df = pd.DataFrame(data)
 
+    # Verificar si los datos están vacíos
     if df.empty:
         st.warning("No se encontraron solicitudes.")
     else:
-        # Mostrar tabla con filtros
-        st.write("Tabla de Solicitudes:")
+        # Filtros para los datos
+        st.write("Filtrar Solicitudes:")
         cliente_seleccionado = st.selectbox("Filtrar por Responsable", options=["Todos"] + df["Responsable"].unique().tolist())
         if cliente_seleccionado != "Todos":
             df = df[df["Responsable"] == cliente_seleccionado]
         
         solicitud_seleccionado = st.selectbox("Filtrar por Tipo de Solicitud", options=["Todos"] + df["Solicitud"].unique().tolist())
-        if cliente_seleccionado != "Todos":
+        if solicitud_seleccionado != "Todos":
             df = df[df["Solicitud"] == solicitud_seleccionado]
 
         estado_seleccionado = st.selectbox("Filtrar por Estado", options=["Todos"] + df["Estado"].unique().tolist())
         if estado_seleccionado != "Todos":
             df = df[df["Estado"] == estado_seleccionado]
 
-        st.write("Solicitudes filtradas:")
+        st.write(f"Solicitudes filtradas ({len(df)}):")
 
-        # Tabla con botones
+        # Convertir las columnas de Fecha y Hora a formato adecuado
+        df['Fecha'] = pd.to_datetime(df['Fecha']).dt.strftime('%Y-%m-%d')
+
+        # Diseño de la tabla con bordes y todo en una sola línea por registro
         for _, row in df.iterrows():
-            col1, col2, col3, col4, col5, col6, col7, col8, col9, col10, col11 = st.columns(11)
-            col1.write(row["ID"])
-            col2.write(row["Solicitud"])
-            col3.write(row["Cliente"])
-            col4.write(row["Servicio"])
-            col5.write(row["Responsable"])
-            col6.write(row["Fecha"])
-            col7.write(row["Hora"])
-            col8.write(row["Descripción"])
-            col9.write(row["Estado"])
-            
-            # Botón "Ver"
-            if col10.button("Ver", key=f"ver_{row['ID']}"):
-                st.info(f"Ver detalles de la solicitud ID: {row['ID']}")
-                # Lógica para mostrar los detalles adicionales
+            # Se usa un layout de columnas para crear una fila de datos
+            col1, col2, col3, col4, col5, col6, col7, col8, col9 = st.columns([1, 1, 1, 1, 1, 1, 1, 1, 1])
 
-            # Botón "Responder"
-            if col11.button("Responder", key=f"responder_{row['ID']}"):
-                st.info(f"Responder solicitud ID: {row['ID']}")
-                # Lógica para responder la solicitud
+            # Escribir los valores de cada columna de la fila
+            col1.markdown(f"<p style='font-weight: bold; margin: 0; padding: 5px;'>{row['ID']}</p>", unsafe_allow_html=True)
+            col2.markdown(f"<p style='margin: 0; padding: 5px;'>{row['Solicitud']}</p>", unsafe_allow_html=True)
+            col3.markdown(f"<p style='margin: 0; padding: 5px;'>{row['Cliente']}</p>", unsafe_allow_html=True)
+            col4.markdown(f"<p style='margin: 0; padding: 5px;'>{row['Servicio']}</p>", unsafe_allow_html=True)
+            col5.markdown(f"<p style='margin: 0; padding: 5px;'>{row['Responsable']}</p>", unsafe_allow_html=True)
+            col6.markdown(f"<p style='margin: 0; padding: 5px;'>{row['Fecha']}</p>", unsafe_allow_html=True)
+            col7.markdown(f"<p style='margin: 0; padding: 5px;'>{row['Estado']}</p>", unsafe_allow_html=True)
 
-    # Cierre de la conexión
+            # Agregar los botones "Ver" y "Responder" con lógica correspondiente
+            with col8:
+                if st.button("Ver", key=f"ver_{row['ID']}"):
+                    st.info(f"Ver detalles de la solicitud ID: {row['ID']}")
+                    # Lógica para mostrar los detalles adicionales
+
+            with col9:
+                if st.button("Responder", key=f"responder_{row['ID']}"):
+                    st.info(f"Responder solicitud ID: {row['ID']}")
+                    # Lógica para responder la solicitud
+
+    # Cierre de la conexión a la base de datos
     cursor.close()
     conn.close()
 

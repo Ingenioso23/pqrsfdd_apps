@@ -217,7 +217,7 @@ def submit_form(datos_cliente, datos_sucesos, datos_tramite,  radicado):
             cursor.execute("SELECT correo FROM usuarios WHERE id_usuario = %s", (datos_sucesos[3],))
             correo_responsable = cursor.fetchone()[0]
             mensaje_responsable = (
-                f"Tiene una solicitud pendiente por responder con número de radicado {radicado}. "
+                f"Tiene una solicitud pendiente por responder con número de radicado {radicado}. /n "
                 f"Ingrese al sistema en https://sistema-pqrsfdd.streamlit.app/"
             )
             enviar_correo(correo_responsable, "Nueva solicitud pendiente en PQRSFDD", mensaje_responsable)

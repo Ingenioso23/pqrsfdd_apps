@@ -7,7 +7,8 @@ from mysql.connector import Error
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-
+LOGO_PATH = "logo_clinivida.jpg"
+MAX_FILE_SIZE_MB = 2
 # Cargar variables de entorno
 load_dotenv()
 
@@ -101,12 +102,34 @@ def obtener_radicados(usuario):
 
 # Guardar archivos adjuntos
 def save_uploaded_file(file, radicado):
-    carpeta_destino = os.path.join("uploads", radicado)
-    os.makedirs(carpeta_destino, exist_ok=True)
+    # Crear la ruta del directorio usando el radicado
+    carpeta_destino = os.path.join("uploads_res", radicado)
+    if not os.path.exists(carpeta_destino):
+        os.makedirs(carpeta_destino)
+
+    # Ruta del archivo
     ruta_archivo = os.path.join(carpeta_destino, file.name)
+    
+    # Guardar el archivo en el directorio
     with open(ruta_archivo, "wb") as f:
         f.write(file.getbuffer())
+        
     return ruta_archivo
+
+def process_files_and_save_paths(files, radicado):
+    rutas_archivos = []
+    for file in files:
+        # Verificar tamaño del archivo
+        if file.size > MAX_FILE_SIZE_MB * 1024 * 1024:
+            st.warning(f"El archivo {file.name} supera el límite de {MAX_FILE_SIZE_MB} MB.")
+            continue
+
+        # Guardar archivo y agregar la ruta a la lista
+        ruta_archivo = save_uploaded_file(file, radicado)
+        rutas_archivos.append(ruta_archivo)
+    
+    # Si hay rutas guardadas, convertir en string separado por comas
+    return ",".join(rutas_archivos) if rutas_archivos else None
 
 def obtener_usuario(id_usuario):
     """Consulta la información del usuario con el ID proporcionado."""
@@ -163,15 +186,16 @@ if usuario_logueado:
         
         # Descripción y adjuntos
         descripcion = st.text_area("Descripción de la Respuesta")
-        archivo = st.file_uploader("Adjuntar Archivos (PDF/Imágenes)", accept_multiple_files=True)
+        archivo = st.file_uploader("Adjuntar Archivo(s)", type=['pdf', 'jpg', 'jpeg', 'png'], accept_multiple_files=True)
         
         # Botones
         col1, col2 = st.columns(2)
         with col1:
             if st.button("Enviar"):
                 # Guardar adjuntos
+                
                 if archivo:
-                    rutas_adjuntos = [save_uploaded_file(f, radicado_seleccionado) for f in archivo]
+                    rutas_adjuntos = [process_files_and_save_paths(f, radicado_seleccionado) for f in archivo]
                 else:
                     rutas_adjuntos = None
 
@@ -180,15 +204,29 @@ if usuario_logueado:
                 if connection:
                     cursor = connection.cursor()
                     try:
+                        estado_map = {
+                            "Recibida": 1,
+                            "En Tramite": 2,
+                            "Contestada": 3,
+                            "Vencida": 4
+                        }
+                        estado_numerico = estado_map.get(estado_actual, None)
                         query = """
-                            UPDATE solicitudes SET estado_actual = %s, fecha_respuesta = %s, descripcion_respuesta = %s, adjuntos = %s
-                            WHERE id_rad = %s
+                            UPDATE estado_del_tramite SET id_tipo_estado = %s, fecha_respuesta = %s, descripcion_res = %s, adjunto_res = %s
+                            WHERE radicado = %s
                         """
-                        cursor.execute(query, (estado_actual, fecha_respuesta if estado_actual == "Contestado" else None, descripcion, ",".join(rutas_adjuntos) if rutas_adjuntos else None, radicado_seleccionado))
+                        cursor.execute(query, (estado_numerico, fecha_respuesta if estado_actual == "Contestada" else None, descripcion, ",".join(rutas_adjuntos) if rutas_adjuntos else None, radicado_seleccionado))
                         connection.commit()
                         
                         # Enviar correo al solicitante
-                        mensaje = f"Su solicitud con radicado {radicado_seleccionado} ha sido respondida. Descripción: {descripcion}"
+                        mensaje = (
+                            f"Su solicitud con radicado {radicado_seleccionado} ha sido respondida. \n"
+                            f"Respuesta: {descripcion}\n"
+                            f"Te invitamos a contestar la encuenta de satisfacción siguiente: \n"
+                            f"https://forms.gle/pjpNxWQPA7mYvyvs9"
+                        )
+
+
                         enviar_correo(correo, "Respuesta PQRSFDD", mensaje)
                         
                         st.success("Respuesta enviada correctamente.")
@@ -199,8 +237,9 @@ if usuario_logueado:
                         cursor.close()
                         connection.close()
         
+        
         with col2:
             if st.button("Borrar"):
-                st.experimental_rerun()
+                st.rerun()
     else:
         st.info("No tiene radicados pendientes.")

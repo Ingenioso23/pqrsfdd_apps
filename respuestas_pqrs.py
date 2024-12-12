@@ -119,8 +119,12 @@ def save_uploaded_file(file, radicado):
 def process_files_and_save_paths(files, radicado):
     rutas_archivos = []
     for file in files:
-        # Verificar tamaño del archivo
-        file_size = len(file.getvalue())  # Obtener el tamaño del archivo en bytes
+        # Verificar si el archivo es válido
+        if file is None:
+            continue
+
+        # Obtener el tamaño del archivo en bytes
+        file_size = len(file.getvalue())
         if file_size > MAX_FILE_SIZE_MB * 1024 * 1024:
             st.warning(f"El archivo {file.name} supera el límite de {MAX_FILE_SIZE_MB} MB.")
             continue
@@ -128,9 +132,10 @@ def process_files_and_save_paths(files, radicado):
         # Guardar archivo y agregar la ruta a la lista
         ruta_archivo = save_uploaded_file(file, radicado)
         rutas_archivos.append(ruta_archivo)
-    
+
     # Si hay rutas guardadas, convertir en string separado por comas
     return ",".join(rutas_archivos) if rutas_archivos else None
+
 
 def obtener_usuario(id_usuario):
     """Consulta la información del usuario con el ID proporcionado."""
@@ -188,6 +193,7 @@ if usuario_logueado:
         # Descripción y adjuntos
         descripcion = st.text_area("Descripción de la Respuesta")
         archivo = st.file_uploader("Adjuntar Archivo(s)", type=['pdf', 'jpg', 'jpeg', 'png'], accept_multiple_files=True)
+
         
         # Botones
         col1, col2 = st.columns(2)
@@ -196,7 +202,7 @@ if usuario_logueado:
                 # Guardar adjuntos
                 
                 if archivo:
-                    rutas_adjuntos = [process_files_and_save_paths(f, radicado_seleccionado) for f in archivo]
+                    rutas_adjuntos = process_files_and_save_paths(archivo, radicado_seleccionado)
                 else:
                     rutas_adjuntos = None
 

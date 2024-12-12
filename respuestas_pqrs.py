@@ -227,9 +227,9 @@ if usuario_logueado:
                         
                         # Enviar correo al solicitante
                         mensaje = (
-                            f"Su solicitud con radicado {radicado_seleccionado} ha sido respondida. \n"
-                            f"Respuesta: {descripcion}\n"
-                            f"Te invitamos a contestar la encuenta de satisfacción siguiente: \n"
+                            f"Su solicitud con radicado {radicado_seleccionado} ha sido respondida."
+                            f"Respuesta: {descripcion}"
+                            f"Te invitamos a contestar la encuenta de satisfacción siguiente: "
                             f"https://forms.gle/pjpNxWQPA7mYvyvs9"
                         )
 

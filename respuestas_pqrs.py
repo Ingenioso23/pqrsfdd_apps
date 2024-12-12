@@ -155,7 +155,10 @@ def obtener_usuario(id_usuario):
     return None
 
 # Formulario de Respuesta PQRSFDD
-st.set_page_config(page_title="Formulario de Respuesta PQRSFDD", layout="wide")
+
+st.set_page_config(page_title="Formulario de Respuesta PQRSFDD")
+st.markdown('<style>body{font-family:sans-serif;}</style>', unsafe_allow_html=True)
+
 
 # Header con logo y título
 st.image(LOGO_PATH, width=100)

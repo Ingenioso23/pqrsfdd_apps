@@ -7,6 +7,10 @@ from mysql.connector import Error
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+
+# Configuración de la página de Streamlit (debe ser la primera línea)
+st.set_page_config(page_title="Formulario de Respuesta PQRSFDD")
+
 LOGO_PATH = "logo_clinivida.jpg"
 MAX_FILE_SIZE_MB = 2
 # Cargar variables de entorno
@@ -43,34 +47,6 @@ def create_connection():
         return None
 
 # Función para enviar correos
-    
-def enviar_correo(destinatario, asunto, mensaje):
-    msg = MIMEMultipart()
-    msg['From'] = SMTP_USER
-    msg['To'] = destinatario
-    msg['Subject'] = asunto
-    msg.attach(MIMEText(mensaje, 'plain'))
-    
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            # Establecer la conexión y usar STARTTLS si es necesario
-            server.ehlo()  # Inicia la sesión SMTP
-            server.starttls()  # Establece una conexión segura
-            server.ehlo()  # Necesario después de starttls()
-            
-            # Verifica si la conexión está abierta
-            if server.noop()[0] != 250:
-                raise Exception("Error al conectar con el servidor SMTP.")
-            
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(SMTP_USER, destinatario, msg.as_string())
-        
-        return True
-    except Exception as e:
-        st.error(f"Error al enviar correo: {e}")
-        return False
-
-"""
 def enviar_correo(destinatario, asunto, mensaje):
     msg = MIMEMultipart()
     msg['From'] = SMTP_USER
@@ -86,7 +62,7 @@ def enviar_correo(destinatario, asunto, mensaje):
     except Exception as e:
         st.error(f"Error al enviar correo: {e}")
         return False
-"""
+
 # Función para obtener los radicados pendientes
 def obtener_radicados(usuario):
     connection = create_connection()
@@ -108,13 +84,10 @@ def obtener_radicados(usuario):
             INNER JOIN clientes ON sucesos.id_cliente = clientes.id_cliente
             WHERE sucesos.id_responsable = %s
             AND edt.id_tipo_estado != 3;
-
         """
         try:
-            #print(f"Ejecutando consulta para el usuario: {usuario}")
             cursor.execute(query, (usuario,))
             resultados = cursor.fetchall()
-            #print(f"Resultados obtenidos: {resultados}")
             return resultados
         except Exception as e:
             print(f"Error al ejecutar la consulta: {e}")
@@ -125,8 +98,6 @@ def obtener_radicados(usuario):
     else:
         print("No se pudo establecer conexión con la base de datos.")
     return []
-
-
 
 # Guardar archivos adjuntos
 def save_uploaded_file(file, radicado):
@@ -161,7 +132,6 @@ def process_files_and_save_paths(files, radicado):
     # Unir rutas con comas
     return ",".join(rutas_archivos) if rutas_archivos else None
 
-
 def obtener_usuario(id_usuario):
     """Consulta la información del usuario con el ID proporcionado."""
     connection = create_connection()
@@ -184,20 +154,15 @@ def obtener_usuario(id_usuario):
 
 # Formulario de Respuesta PQRSFDD
 
-st.set_page_config(page_title="Formulario de Respuesta PQRSFDD")
 st.markdown('<style>body{font-family:sans-serif;}</style>', unsafe_allow_html=True)
-
 
 # Header con logo y título
 st.image(LOGO_PATH, width=100)
 st.title("FORMULARIO DE RESPUESTA PQRSFDD")
 
-
-
 # Obtener el usuario logueado
 usuario_l = st.text_input("Usuario Logueado", placeholder="Ingrese su ID de usuario")
-usuario_logueado= obtener_usuario(usuario_l)
-#print(usuario_logueado)
+usuario_logueado = obtener_usuario(usuario_l)
 if usuario_logueado:
     radicados = obtener_radicados(usuario_l)
     if radicados:
@@ -222,13 +187,11 @@ if usuario_logueado:
         descripcion = st.text_area("Descripción de la Respuesta")
         archivo = st.file_uploader("Adjuntar Archivo(s)", type=['pdf', 'jpg', 'jpeg', 'png'], accept_multiple_files=True)
 
-        
         # Botones
         col1, col2 = st.columns(2)
         with col1:
             if st.button("Enviar"):
                 # Guardar adjuntos
-                
                 if archivo:
                     rutas_adjuntos = process_files_and_save_paths(archivo, radicado_seleccionado)
                 else:
@@ -255,15 +218,13 @@ if usuario_logueado:
                             WHERE radicado = %s
                         """
 
-                        # Asegúrate de no llamar a ",".join(rutas_adjuntos) si ya se concatenaron anteriormente.
                         cursor.execute(query, (
                             estado_numerico, 
                             fecha_respuesta if estado_actual == "Contestada" else None, 
                             descripcion, 
-                            rutas_adjuntos if rutas_adjuntos else None,  # No vuelvas a aplicar join
+                            rutas_adjuntos if rutas_adjuntos else None, 
                             radicado_seleccionado
                         ))
-                       
                         connection.commit()
                         
                         # Enviar correo al solicitante
@@ -273,8 +234,6 @@ if usuario_logueado:
                             f"Te invitamos a contestar la encuenta de satisfacción siguiente: \n"
                             f"https://forms.gle/pjpNxWQPA7mYvyvs9"
                         )
-
-
                         enviar_correo(correo, "Respuesta PQRSFDD", mensaje)
                         
                         st.success("Respuesta enviada correctamente.")
@@ -284,10 +243,9 @@ if usuario_logueado:
                     finally:
                         cursor.close()
                         connection.close()
-        
-        
         with col2:
             if st.button("Borrar"):
                 st.rerun()
     else:
         st.info("No tiene radicados pendientes.")
+

@@ -120,7 +120,8 @@ def process_files_and_save_paths(files, radicado):
     rutas_archivos = []
     for file in files:
         # Verificar tamaño del archivo
-        if file.size > MAX_FILE_SIZE_MB * 1024 * 1024:
+        file_size = len(file.getvalue())  # Obtener el tamaño del archivo en bytes
+        if file_size > MAX_FILE_SIZE_MB * 1024 * 1024:
             st.warning(f"El archivo {file.name} supera el límite de {MAX_FILE_SIZE_MB} MB.")
             continue
 

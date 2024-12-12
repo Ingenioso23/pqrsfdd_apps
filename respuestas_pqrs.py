@@ -53,15 +53,18 @@ def enviar_correo(destinatario, asunto, mensaje):
     msg['To'] = destinatario
     msg['Subject'] = asunto
     msg.attach(MIMEText(mensaje, 'plain'))
+
     try:
+        # Conexión explícita al servidor SMTP
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(SMTP_USER, destinatario, msg.as_string())
+            server.starttls()  # Usa TLS para seguridad
+            server.login(SMTP_USER, SMTP_PASSWORD)  # Inicia sesión en el servidor
+            server.sendmail(SMTP_USER, destinatario, msg.as_string())  # Enviar correo
         return True
     except Exception as e:
         st.error(f"Error al enviar correo: {e}")
         return False
+
 
 # Función para obtener los radicados pendientes
 def obtener_radicados(usuario):

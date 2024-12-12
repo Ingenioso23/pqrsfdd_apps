@@ -43,6 +43,34 @@ def create_connection():
         return None
 
 # Función para enviar correos
+    
+def enviar_correo(destinatario, asunto, mensaje):
+    msg = MIMEMultipart()
+    msg['From'] = SMTP_USER
+    msg['To'] = destinatario
+    msg['Subject'] = asunto
+    msg.attach(MIMEText(mensaje, 'plain'))
+    
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            # Establecer la conexión y usar STARTTLS si es necesario
+            server.ehlo()  # Inicia la sesión SMTP
+            server.starttls()  # Establece una conexión segura
+            server.ehlo()  # Necesario después de starttls()
+            
+            # Verifica si la conexión está abierta
+            if server.noop()[0] != 250:
+                raise Exception("Error al conectar con el servidor SMTP.")
+            
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.sendmail(SMTP_USER, destinatario, msg.as_string())
+        
+        return True
+    except Exception as e:
+        st.error(f"Error al enviar correo: {e}")
+        return False
+
+"""
 def enviar_correo(destinatario, asunto, mensaje):
     msg = MIMEMultipart()
     msg['From'] = SMTP_USER
@@ -58,7 +86,7 @@ def enviar_correo(destinatario, asunto, mensaje):
     except Exception as e:
         st.error(f"Error al enviar correo: {e}")
         return False
-
+"""
 # Función para obtener los radicados pendientes
 def obtener_radicados(usuario):
     connection = create_connection()

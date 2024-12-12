@@ -83,10 +83,10 @@ def obtener_radicados(usuario):
 
         """
         try:
-            print(f"Ejecutando consulta para el usuario: {usuario}")
+            #print(f"Ejecutando consulta para el usuario: {usuario}")
             cursor.execute(query, (usuario,))
             resultados = cursor.fetchall()
-            print(f"Resultados obtenidos: {resultados}")
+            #print(f"Resultados obtenidos: {resultados}")
             return resultados
         except Exception as e:
             print(f"Error al ejecutar la consulta: {e}")
@@ -119,21 +119,18 @@ def save_uploaded_file(file, radicado):
 def process_files_and_save_paths(files, radicado):
     rutas_archivos = []
     for file in files:
-        # Verificar si el archivo es válido
         if file is None:
             continue
 
-        # Obtener el tamaño del archivo en bytes
         file_size = len(file.getvalue())
         if file_size > MAX_FILE_SIZE_MB * 1024 * 1024:
             st.warning(f"El archivo {file.name} supera el límite de {MAX_FILE_SIZE_MB} MB.")
             continue
 
-        # Guardar archivo y agregar la ruta a la lista
         ruta_archivo = save_uploaded_file(file, radicado)
         rutas_archivos.append(ruta_archivo)
 
-    # Si hay rutas guardadas, convertir en string separado por comas
+    # Unir rutas con comas
     return ",".join(rutas_archivos) if rutas_archivos else None
 
 
@@ -169,7 +166,7 @@ st.title("FORMULARIO DE RESPUESTA PQRSFDD")
 # Obtener el usuario logueado
 usuario_l = st.text_input("Usuario Logueado", placeholder="Ingrese su ID de usuario")
 usuario_logueado= obtener_usuario(usuario_l)
-print(usuario_logueado)
+#print(usuario_logueado)
 if usuario_logueado:
     radicados = obtener_radicados(usuario_l)
     if radicados:
@@ -219,17 +216,30 @@ if usuario_logueado:
                         }
                         estado_numerico = estado_map.get(estado_actual, None)
                         query = """
-                            UPDATE estado_del_tramite SET id_tipo_estado = %s, fecha_respuesta = %s, descripcion_res = %s, adjunto_res = %s
+                            UPDATE estado_del_tramite 
+                            SET id_tipo_estado = %s, 
+                                fecha_respuesta = %s, 
+                                descripcion_res = %s, 
+                                adjunto_res = %s
                             WHERE radicado = %s
                         """
-                        cursor.execute(query, (estado_numerico, fecha_respuesta if estado_actual == "Contestada" else None, descripcion, ",".join(rutas_adjuntos) if rutas_adjuntos else None, radicado_seleccionado))
+
+                        # Asegúrate de no llamar a ",".join(rutas_adjuntos) si ya se concatenaron anteriormente.
+                        cursor.execute(query, (
+                            estado_numerico, 
+                            fecha_respuesta if estado_actual == "Contestada" else None, 
+                            descripcion, 
+                            rutas_adjuntos if rutas_adjuntos else None,  # No vuelvas a aplicar join
+                            radicado_seleccionado
+                        ))
+                       
                         connection.commit()
                         
                         # Enviar correo al solicitante
                         mensaje = (
-                            f"Su solicitud con radicado {radicado_seleccionado} ha sido respondida."
-                            f"Respuesta: {descripcion}"
-                            f"Te invitamos a contestar la encuenta de satisfacción siguiente: "
+                            f"Su solicitud con radicado {radicado_seleccionado} ha sido respondida.\n"
+                            f"Respuesta: {descripcion} \n"
+                            f"Te invitamos a contestar la encuenta de satisfacción siguiente: \n"
                             f"https://forms.gle/pjpNxWQPA7mYvyvs9"
                         )
 

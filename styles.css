@@ -2,7 +2,7 @@
 
 /* Estilo general */
 body {
-    font-family: Arial, sans-serif;
+    font-family: sans-serif;
     background-color: #f8f9fa;
 }
 
@@ -80,7 +80,7 @@ a:hover {
 
 /* Estilo general */
 body {
-    font-family: Arial, sans-serif;
+    font-family: sans-serif;
     background-color: #f0f2f5;
     padding: 40px 0;
     display: flex;

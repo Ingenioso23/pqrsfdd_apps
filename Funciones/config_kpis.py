@@ -14,6 +14,39 @@ st.set_page_config(
 )
 
 # Funciones para obtener los datos desde la base de datos
+def get_response_times_by_service_and_responsible():
+    conn = create_connection()
+    query = """
+        SELECT 
+            tipo_solicitud.nombre_sol AS servicio,
+            usuarios.nombre AS responsable,
+            AVG(DATEDIFF(estado_del_tramite.fecha_respuesta, sucesos.fecha_rad)) AS tiempo_promedio
+        FROM sucesos
+        JOIN estado_del_tramite ON sucesos.id_rad = estado_del_tramite.radicado
+        JOIN tipo_solicitud ON estado_del_tramite.id_solicitud = tipo_solicitud.id_solicitud
+        JOIN usuarios ON sucesos.id_responsable = usuarios.id_usuario
+        WHERE estado_del_tramite.id_tipo_estado = 3  -- Solo solicitudes contestadas
+        GROUP BY tipo_solicitud.nombre_sol, usuarios.nombre
+        ORDER BY servicio, responsable;
+    """
+    df = pd.read_sql(query, conn)
+    conn.close()
+    return df
+
+
+def get_requests_by_service():
+    conn = create_connection()
+    query = """
+    SELECT servicio_disponibles.nombre_serv, COUNT(*) AS total
+    FROM sucesos
+    JOIN servicio_disponibles ON sucesos.id_servicio = servicio_disponibles.id_servicio
+    GROUP BY servicio_disponibles.nombre_serv
+    ORDER BY total DESC
+    """
+    df = pd.read_sql(query, conn)
+    conn.close()
+    return df
+
 def get_total_requests():
     conn = create_connection()
     query = "SELECT COUNT(*) FROM sucesos"
@@ -233,6 +266,7 @@ def kpis_page():
             x='nombre_sol',
             y='total',
             title="Solicitudes por Tipo",
+            labels={"total": "Solicitudes", "nombre_sol": "Tipo de Solicitud"},
             color='nombre_sol',
             color_discrete_sequence=COLORS
         )
@@ -324,6 +358,72 @@ def kpis_page():
 
         # Mostrar la gráfica en Streamlit
         st.plotly_chart(fig4, use_container_width=True)
+    col5, col6 = st.columns(2)
+    # Solicitudes por Servicio
+    with col5:
+        st.subheader("Solicitudes por Servicio")
+        
+        # Obtener los datos
+        df_requests_by_service = get_requests_by_service()
+        
+        # Crear la gráfica
+        fig5 = px.bar(
+            df_requests_by_service,
+            x='nombre_serv',
+            y='total',
+            title="Solicitudes por Servicio",
+            color='nombre_serv',
+            color_discrete_sequence=COLORS
+        )
+        
+        # Ajustar layout
+        fig5.update_layout(
+            xaxis_title="Servicio",
+            yaxis_title="Cantidad de Solicitudes",
+            yaxis=dict(
+                tickmode='linear',
+                tick0=0,
+                dtick=1,
+                range=[0, df_requests_by_service["total"].max() + 1]
+            ),
+            showlegend=False
+        )
+        
+        # Mostrar la gráfica
+        st.plotly_chart(fig5, use_container_width=True)
+        
+            # Cuarta fila: Tiempo de respuesta por servicio y responsable
+    
+    with col6:
+        st.subheader("Tiempo de Respuesta por Servicio y Responsable")
+
+        # Obtener datos de la base de datos
+        df_response_times = get_response_times_by_service_and_responsible()
+
+        # Crear la gráfica usando los datos
+        fig6 = px.bar(
+            df_response_times,
+            x="servicio",
+            y="tiempo_promedio",
+            color="responsable",
+            barmode="group",  # Agrupar barras por responsable
+            title="Tiempo de Respuesta Promedio por Servicio y Responsable",
+            labels={"tiempo_promedio": "Días"},  # Etiquetas del eje y
+            color_discrete_sequence=COLORS
+        )
+        
+        # Personalizar el layout para mayor claridad
+        fig6.update_layout(
+            xaxis_title="Servicio",
+            yaxis_title="Tiempo Promedio (Días)",
+            legend_title="Responsable",
+            xaxis_tickangle=-45  # Girar etiquetas del eje x
+        )
+        
+        # Mostrar la gráfica
+        st.plotly_chart(fig6, use_container_width=True)
+
+
 
 
     # Agregar un botón para cerrar sesión

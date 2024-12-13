@@ -217,8 +217,14 @@ def submit_form(datos_cliente, datos_sucesos, datos_tramite,  radicado):
             cursor.execute("SELECT correo FROM usuarios WHERE id_usuario = %s", (datos_sucesos[3],))
             correo_responsable = cursor.fetchone()[0]
             mensaje_responsable = (
-                f"Tiene una solicitud pendiente por responder con número de radicado {radicado}. /n "
-                f"Ingrese al sistema en https://sistema-pqrsfdd.streamlit.app/"
+                f"Tiene una solicitud pendiente por responder con número de radicado {radicado}. \n "
+                f"Tipo de Solicitud: {datos_tramite[1]} \n "
+                f"Fecha de radicado: {datos_sucesos[2]} \n "
+                f"Fecha de vencimiento: {datos_tramite[2]} \n "
+                f"Descripción: {datos_sucesos[7]} \n "
+                f"Observación: {datos_sucesos[8]} \n "
+                f"Adjunto: {datos_sucesos[9]} \n "
+                f"Ingrese al sistema y responda las pqrsfdd pendientes: https://formulario-respuestas.streamlit.app/"
             )
             enviar_correo(correo_responsable, "Nueva solicitud pendiente en PQRSFDD", mensaje_responsable)
 
@@ -410,7 +416,7 @@ def main():
             radicado = generar_radicado(tipo_solicitud)
             
             ruta_adjuntos = process_files_and_save_paths(archivo_adjuntos, radicado) if archivo_adjuntos else None
-            fecha_vencimiento = fecha_solicitud + timedelta(days=5)
+            fecha_vencimiento = fecha_solicitud + timedelta(days=1)
             # Datos del cliente como tupla
             datos_cliente = (
                 numero_documento,  

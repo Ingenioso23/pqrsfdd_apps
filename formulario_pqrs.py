@@ -228,7 +228,7 @@ def submit_form(datos_cliente, datos_sucesos, datos_tramite,  radicado):
                 f"Observación: {datos_sucesos[8]} \n "
                 f"Adjunto: {datos_sucesos[9]} \n\n"
                 f"Ingrese al sistema y responda las pqrsfdd pendientes: \n"
-                f"https://musical-goldfish-jqxwqr64xrvfg74-8505.app.github.dev/"
+                f"https://formulario-respuestas.streamlit.app/"
             )
             enviar_correo(correo_responsable, "Nueva solicitud pendiente en PQRSFDD", mensaje_responsable)
 

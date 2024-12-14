@@ -57,9 +57,10 @@ def enviar_correo(destinatario, asunto, mensaje):
     try:
         # Conexión explícita al servidor SMTP
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()  # Usa TLS para seguridad
-            server.login(SMTP_USER, SMTP_PASSWORD)  # Inicia sesión en el servidor
-            server.sendmail(SMTP_USER, destinatario, msg.as_string())  # Enviar correo
+            server.set_debuglevel(1)  # Activa la depuración
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.sendmail(SMTP_USER, destinatario, msg.as_string())
         return True
     except Exception as e:
         print("Variables SMTP:")

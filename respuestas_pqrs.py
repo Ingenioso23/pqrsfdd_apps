@@ -48,30 +48,29 @@ def create_connection():
 
 # Función para enviar correos
 def enviar_correo(destinatario, asunto, mensaje):
+    # Crear el mensaje de correo
     msg = MIMEMultipart()
     msg['From'] = SMTP_USER
     msg['To'] = destinatario
     msg['Subject'] = asunto
     msg.attach(MIMEText(mensaje, 'plain'))
 
+    # Enviar el correo
     try:
-        # Conexión explícita al servidor SMTP
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            print("Variables SMTP:")
-            print(f"Host: {SMTP_HOST}, Port: {SMTP_PORT}, User: {SMTP_USER}")
-            server.set_debuglevel(2)  # Nivel de depuración más alto
-            server.ehlo()  # Envía EHLO explícitamente
-            server.starttls()  # Inicializa TLS
-            server.ehlo()  # Vuelve a enviar EHLO después de starttls
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(SMTP_USER, "destinatario@gmail.com", msg.as_string())
-            print("Correo enviado con éxito")
+        # Establecer conexión con el servidor SMTP
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+        server.ehlo()  # Saludar al servidor SMTP
+        server.starttls()  # Inicia la conexión segura
+        server.ehlo()  # Saludo adicional después del STARTTLS
+        server.login(SMTP_USER, SMTP_PASSWORD)  # Iniciar sesión
+        server.sendmail(SMTP_USER, destinatario, msg.as_string())  # Enviar correo
+        server.quit()  # Cerrar la conexión
         return True
     except Exception as e:
-        print("Variables SMTP:")
-        print(f"Host: {SMTP_HOST}, Port: {SMTP_PORT}, User: {SMTP_USER}")
-        st.error(f"Error al enviar correo: {e}")
+        print(f"Error al enviar correo a {destinatario}: {e}")
         return False
+
+
 
 
 # Función para obtener los radicados pendientes

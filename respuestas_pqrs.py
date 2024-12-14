@@ -57,7 +57,7 @@ def enviar_correo(destinatario, asunto, mensaje):
     try:
         # Conexión explícita al servidor SMTP
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.set_debuglevel(1)  # Activa la depuración
+            server.set_debuglevel(2)  # Activa la depuración
             server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.sendmail(SMTP_USER, destinatario, msg.as_string())

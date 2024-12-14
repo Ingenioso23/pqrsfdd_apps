@@ -70,9 +70,6 @@ def enviar_correo(destinatario, asunto, mensaje):
         print(f"Error al enviar correo a {destinatario}: {e}")
         return False
 
-
-
-
 # Función para obtener los radicados pendientes
 def obtener_radicados(usuario):
     connection = create_connection()

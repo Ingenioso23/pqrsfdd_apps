@@ -62,6 +62,8 @@ def enviar_correo(destinatario, asunto, mensaje):
             server.sendmail(SMTP_USER, destinatario, msg.as_string())  # Enviar correo
         return True
     except Exception as e:
+        print("Variables SMTP:")
+        print(f"Host: {SMTP_HOST}, Port: {SMTP_PORT}, User: {SMTP_USER}")
         st.error(f"Error al enviar correo: {e}")
         return False
 

@@ -110,7 +110,7 @@ def create_connection():
         return None
 
 # Configuración de la página
-st.set_page_config(page_title="Formulario PQRSFDD", layout="wide")
+st.set_page_config(page_title="Formulario PQRSFDD")
 
 @st.cache_data
 def obtener_hora_actual_colombia():
@@ -220,11 +220,12 @@ def submit_form(datos_cliente, datos_sucesos, datos_tramite,  radicado):
                 f"Tiene una solicitud pendiente por responder con número de radicado {radicado}. \n "
                 f"Tipo de Solicitud: {datos_tramite[1]} \n "
                 f"Fecha de radicado: {datos_sucesos[2]} \n "
-                f"Fecha de vencimiento: {datos_tramite[2]} \n "
+                f"Fecha de vencimiento: {datos_tramite[2]} \n\n"
                 f"Descripción: {datos_sucesos[7]} \n "
                 f"Observación: {datos_sucesos[8]} \n "
-                f"Adjunto: {datos_sucesos[9]} \n "
-                f"Ingrese al sistema y responda las pqrsfdd pendientes: https://formulario-respuestas.streamlit.app/"
+                f"Adjunto: {datos_sucesos[9]} \n\n"
+                f"Ingrese al sistema y responda las pqrsfdd pendientes: \n"
+                f"https://musical-goldfish-jqxwqr64xrvfg74-8505.app.github.dev/"
             )
             enviar_correo(correo_responsable, "Nueva solicitud pendiente en PQRSFDD", mensaje_responsable)
 

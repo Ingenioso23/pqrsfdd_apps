@@ -59,10 +59,13 @@ def enviar_correo(destinatario, asunto, mensaje):
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
             print("Variables SMTP:")
             print(f"Host: {SMTP_HOST}, Port: {SMTP_PORT}, User: {SMTP_USER}")
-            server.set_debuglevel(2)  # Activa la depuración
-            server.starttls()
+            server.set_debuglevel(2)  # Nivel de depuración más alto
+            server.ehlo()  # Envía EHLO explícitamente
+            server.starttls()  # Inicializa TLS
+            server.ehlo()  # Vuelve a enviar EHLO después de starttls
             server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(SMTP_USER, destinatario, msg.as_string())
+            server.sendmail(SMTP_USER, "destinatario@gmail.com", msg.as_string())
+            print("Correo enviado con éxito")
         return True
     except Exception as e:
         print("Variables SMTP:")

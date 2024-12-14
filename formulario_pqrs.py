@@ -7,6 +7,7 @@ from mysql.connector import Error
 import os
 from dotenv import load_dotenv
 import smtplib
+import email
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 LOGO_PATH = "logo_clinivida.jpg"
@@ -38,17 +39,19 @@ def enviar_correo(destinatario, asunto, mensaje):
 
     # Enviar el correo
     try:
-        # print("Entro por el TRY")
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-             # print("entro al with")
-            server.starttls()  # Inicia la conexión segura
-            server.login(SMTP_USER, SMTP_PASSWORD)  # Inicia sesión
-            server.sendmail(SMTP_USER, destinatario, msg.as_string())  # Envía el correo
+        # Establecer conexión con el servidor SMTP
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+        server.ehlo()  # Saludar al servidor SMTP
+        server.starttls()  # Inicia la conexión segura
+        server.ehlo()  # Saludo adicional después del STARTTLS
+        server.login(SMTP_USER, SMTP_PASSWORD)  # Iniciar sesión
+        server.sendmail(SMTP_USER, destinatario, msg.as_string())  # Enviar correo
+        server.quit()  # Cerrar la conexión
         return True
     except Exception as e:
-        # print("Entro por el Except")
         print(f"Error al enviar correo a {destinatario}: {e}")
         return False
+
 
 def obtener_datos_cliente(numero_documento):
     connection = create_connection()

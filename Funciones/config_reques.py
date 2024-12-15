@@ -65,7 +65,7 @@ def requests_page():
         # Diseño de la tabla con bordes y todo en una sola línea por registro
         for _, row in df.iterrows():
             # Se usa un layout de columnas para crear una fila de datos
-            col1, col2, col3, col4, col5, col6, col7, col8, col9 = st.columns([1, 1, 1, 1, 1, 1, 1, 1, 1])
+            col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 1, 2, 1, 2, 1, 1])
 
             # Escribir los valores de cada columna de la fila
             col1.markdown(f"<p style='font-weight: bold; margin: 0; padding: 5px;'>{row['ID']}</p>", unsafe_allow_html=True)
@@ -77,6 +77,7 @@ def requests_page():
             col7.markdown(f"<p style='margin: 0; padding: 5px;'>{row['Estado']}</p>", unsafe_allow_html=True)
 
             # Agregar los botones "Ver" y "Responder" con lógica correspondiente
+            """
             with col8:
                 if st.button("Ver", key=f"ver_{row['ID']}"):
                     st.info(f"Ver detalles de la solicitud ID: {row['ID']}")
@@ -86,7 +87,7 @@ def requests_page():
                 if st.button("Responder", key=f"responder_{row['ID']}"):
                     st.info(f"Responder solicitud ID: {row['ID']}")
                     # Lógica para responder la solicitud
-
+"""
     # Cierre de la conexión a la base de datos
     cursor.close()
     conn.close()

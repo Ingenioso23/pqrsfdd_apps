@@ -25,7 +25,7 @@ def get_response_times_by_service_and_responsible():
         JOIN estado_del_tramite ON sucesos.id_rad = estado_del_tramite.radicado
         JOIN tipo_solicitud ON estado_del_tramite.id_solicitud = tipo_solicitud.id_solicitud
         JOIN usuarios ON sucesos.id_responsable = usuarios.id_usuario
-        WHERE estado_del_tramite.id_tipo_estado = 3  -- Solo solicitudes contestadas
+        WHERE estado_del_tramite.id_tipo_estado = 3
         GROUP BY tipo_solicitud.nombre_sol, usuarios.nombre
         ORDER BY servicio, responsable;
     """
@@ -265,7 +265,6 @@ def kpis_page():
             df_requests_by_type,
             x='nombre_sol',
             y='total',
-            title="Solicitudes por Tipo",
             labels={"total": "Solicitudes", "nombre_sol": "Tipo de Solicitud"},
             color='nombre_sol',
             color_discrete_sequence=COLORS
@@ -293,7 +292,6 @@ def kpis_page():
             df_status,
             names='nombre_estado',
             values='total',
-            title="Estado de las Solicitudes",
             color_discrete_sequence=COLORS
         )
         st.plotly_chart(fig2, use_container_width=True)
@@ -312,7 +310,6 @@ def kpis_page():
             x="Mes",
             y="total_solicitudes",
             color="tipo_solicitud",  # Agrupación por tipo de solicitud
-            title="Solicitudes Mensuales por Tipo",
             labels={"total_solicitudes": "Solicitudes", "tipo_solicitud": "Tipo de Solicitud"},
             color_discrete_sequence=COLORS,
             barmode="stack"  # Barras apiladas
@@ -341,7 +338,6 @@ def kpis_page():
             df_response_times,
             x="tipo_solicitud",  # Eje X: Tipo de Solicitud
             y="tiempo_promedio",  # Eje Y: Tiempo Promedio
-            title="Tiempos de Respuesta por Tipo",
             labels={"tipo_solicitud": "Tipo de Solicitud", "tiempo_promedio": "Tiempo Promedio (días)"},
             color="tipo_solicitud",  # Colores basados en el valor del tiempo promedio
             color_discrete_sequence=COLORS
@@ -371,7 +367,6 @@ def kpis_page():
             df_requests_by_service,
             x='nombre_serv',
             y='total',
-            title="Solicitudes por Servicio",
             color='nombre_serv',
             color_discrete_sequence=COLORS
         )
@@ -395,7 +390,7 @@ def kpis_page():
             # Cuarta fila: Tiempo de respuesta por servicio y responsable
     
     with col6:
-        st.subheader("Tiempo de Respuesta por Servicio y Responsable")
+        st.subheader("Tiempo de Respuesta por Responsable")
 
         # Obtener datos de la base de datos
         df_response_times = get_response_times_by_service_and_responsible()
@@ -407,14 +402,13 @@ def kpis_page():
             y="tiempo_promedio",
             color="responsable",
             barmode="group",  # Agrupar barras por responsable
-            title="Tiempo de Respuesta Promedio por Servicio y Responsable",
             labels={"tiempo_promedio": "Días"},  # Etiquetas del eje y
             color_discrete_sequence=COLORS
         )
         
         # Personalizar el layout para mayor claridad
         fig6.update_layout(
-            xaxis_title="Servicio",
+            xaxis_title="Tipo Solicitud",
             yaxis_title="Tiempo Promedio (Días)",
             legend_title="Responsable",
             xaxis_tickangle=-45  # Girar etiquetas del eje x

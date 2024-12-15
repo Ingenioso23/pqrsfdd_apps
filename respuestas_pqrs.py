@@ -186,7 +186,7 @@ if usuario_logueado:
         st.date_input("Fecha de Solicitud", value=radicado_data["fecha_solicitud"], disabled=True)
         correo = st.text_input("Correo Electrónico", value=radicado_data["correo"], disabled=True)
         st.text_input("Tipo de Solicitud", value=radicado_data["solicitud"], disabled=True)
-        st.text_input("Solicitud", value=radicado_data["descripcion"], disabled=True)
+        st.text_area("Solicitud", value=radicado_data["descripcion"], disabled=True)
         # Estado actual y posibilidad de cambiarlo
         estado_actual = st.selectbox("Estado Actual", ["Recibida", "En Tramite", "Contestada", "Vencida"], index=["Recibida", "En Tramite", "Contestada", "Vencida"].index(radicado_data["estado_actual"]))
         

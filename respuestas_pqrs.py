@@ -77,20 +77,24 @@ def obtener_radicados(usuario):
         cursor = connection.cursor(dictionary=True)
         
         query = """
-            SELECT 
-                sucesos.id_rad,
-                clientes.nombre_completo AS nombre_solicitante,
-                sucesos.fecha AS fecha_solicitud,
-                clientes.email AS correo,
-                tipo_estado.nombre_estado AS estado_actual,
-                usuarios.nombre AS responsable
-            FROM sucesos
-            INNER JOIN estado_del_tramite edt ON sucesos.id_rad = edt.radicado
-            INNER JOIN tipo_estado ON tipo_estado.id_tipo_estado = edt.id_tipo_estado
-            INNER JOIN usuarios ON sucesos.id_responsable = usuarios.id_usuario
-            INNER JOIN clientes ON sucesos.id_cliente = clientes.id_cliente
-            WHERE sucesos.id_responsable = %s
-            AND edt.id_tipo_estado != 3;
+                SELECT 
+            sucesos.id_rad,
+            clientes.nombre_completo AS nombre_solicitante,
+            sucesos.fecha AS fecha_solicitud,
+            sucesos.descripcion AS descripcion,
+            clientes.email AS correo,
+            tipo_estado.nombre_estado AS estado_actual,
+            tipo_solicitud.nombre_sol AS solicitud,
+            usuarios.nombre AS responsable
+        FROM sucesos
+        INNER JOIN estado_del_tramite edt ON sucesos.id_rad = edt.radicado
+        INNER JOIN tipo_estado ON edt.id_tipo_estado = tipo_estado.id_tipo_estado
+        INNER JOIN tipo_solicitud ON edt.id_solicitud = tipo_solicitud.id_solicitud
+        INNER JOIN usuarios ON sucesos.id_responsable = usuarios.id_usuario
+        INNER JOIN clientes ON sucesos.id_cliente = clientes.id_cliente
+        WHERE sucesos.id_responsable = %s
+        AND edt.id_tipo_estado != 3;
+
         """
         try:
             cursor.execute(query, (usuario,))
@@ -180,9 +184,9 @@ if usuario_logueado:
         # Mostrar datos del radicado
         st.text_input("Nombre del Solicitante", value=radicado_data["nombre_solicitante"], disabled=True)
         st.date_input("Fecha de Solicitud", value=radicado_data["fecha_solicitud"], disabled=True)
-
         correo = st.text_input("Correo Electrónico", value=radicado_data["correo"], disabled=True)
-        
+        st.text_input("Tipo de Solicitud", value=radicado_data["solicitud"], disabled=True)
+        st.text_input("Solicitud", value=radicado_data["descripcion"], disabled=True)
         # Estado actual y posibilidad de cambiarlo
         estado_actual = st.selectbox("Estado Actual", ["Recibida", "En Tramite", "Contestada", "Vencida"], index=["Recibida", "En Tramite", "Contestada", "Vencida"].index(radicado_data["estado_actual"]))
         
@@ -191,7 +195,7 @@ if usuario_logueado:
             fecha_respuesta = st.date_input("Fecha de Respuesta", value=datetime.now())
         
         # Descripción y adjuntos
-        descripcion = st.text_area("Descripción de la Respuesta")
+        descripcion = st.text_area("Escriba la Respuesta")
         archivo = st.file_uploader("Adjuntar Archivo(s)", type=['pdf', 'jpg', 'jpeg', 'png'], accept_multiple_files=True)
 
         # Botones
@@ -237,7 +241,8 @@ if usuario_logueado:
                         # Enviar correo al solicitante
                         mensaje = (
                             f"Su solicitud con radicado {radicado_seleccionado} ha sido respondida.\n"
-                            f"Respuesta: {descripcion} \n"
+                            f"Respuesta: {descripcion} \n\n"
+                            f"Adjunto {rutas_adjuntos}\n\n"
                             f"Te invitamos a contestar la encuenta de satisfacción siguiente: \n"
                             f"https://forms.gle/pjpNxWQPA7mYvyvs9"
                         )

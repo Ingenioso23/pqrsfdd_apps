@@ -7,7 +7,7 @@ def form_configuration_page():
     st.title("Gestión de Tablas")
 
     # Crear un menú de navegación para seleccionar la tabla
-    tablas = ["Inicio", "areas", "Ciudad", "Departamento", "IPS", "EPS", 
+    tablas = ["Inicio", "Areas", "Ciudad", "Departamento", "IPS", "EPS", 
               "Grupo Poblacional", "Tipo Documento", "Tipo Estado", "Tipo Solicitud", "Roles", "Régimen"]
     tabla_seleccionada = st.sidebar.selectbox("Selecciona una Tabla", tablas)
 
@@ -134,7 +134,7 @@ def obtener_campos_tabla(tabla):
     Obtiene los campos de la tabla para dinámicamente generar formularios.
     """
     campos = {
-        "areas": ["id_area", "nombre_area"],
+        "Areas": ["id_area", "nombre_area"],
         "Ciudad": ["id_ciudad", "nombre_ciu", "id_departamento"],
         "Departamento": ["id_departamento", "nombre_dep"],
         "IPS": ["id_ips", "nombre_ips", "id_departamento", "id_ciudad", "direccion"],

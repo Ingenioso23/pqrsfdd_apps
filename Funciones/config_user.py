@@ -33,83 +33,183 @@ def user_management_page():
         st.session_state['page'] = 'login'
 
 def ver_servicios():
-    st.subheader("Responsables por Servicio")
-    
-    # Obtener servicios y usuarios
-    servicios = get_servicios()  # Lista de servicios: [(id, area, responsable_id), ...]
-    usuarios = get_usuarios()  # Lista de usuarios: [(id, nombre), ...]
-    
-    if servicios:
-        # Mostrar las áreas disponibles
-        tipo_servicio = st.selectbox("Área", [servicio[1] for servicio in servicios])
-        
-        # Filtrar responsable por servicio seleccionado
-        servicio_seleccionado = next((servicio for servicio in servicios if servicio[1] == tipo_servicio), None)
-        
-        if servicio_seleccionado:
-            servicio_id = servicio_seleccionado[0]  # ID del servicio
-            responsable_id = servicio_seleccionado[2]  # ID del responsable actual
-            
-            # Buscar el nombre del responsable actual
-            responsable_actual = next((usuario[1] for usuario in usuarios if usuario[0] == responsable_id), "Sin responsable")
-            st.write(f"Responsable Actual: {responsable_actual}")
-            
-            # Seleccionar nuevo responsable
-            nuevo_responsable = st.selectbox(
-                "Nuevo Responsable",
-                [f"{usuario[1]} (ID: {usuario[0]})" for usuario in usuarios]
+    st.subheader("Responsables por Área de Servicio")
+
+    # Obtener datos de la base de datos
+    try:
+        areas = get_areas()  # Lista: [(id_area, area)]
+       # st.write("Áreas obtenidas:", areas)
+
+        usuarios = get_usuarios()  # Lista: [(id_usuario, nombre, correo, rol_id)]
+    except Exception as e:
+        st.error(f"Error al obtener datos: {e}")
+        return
+
+    # Validar datos
+    if not areas:
+        st.warning("No hay áreas disponibles.")
+        return
+
+    if not usuarios:
+        st.warning("No hay usuarios disponibles.")
+        return
+
+    # Mostrar las áreas disponibles
+    opciones_areas = [
+        f"{area[1]} (ID: {area[0]})" for area in areas
+    ]
+
+    area_seleccionada = st.selectbox("Seleccione un Área", opciones_areas)
+
+    # Validar selección del área
+    try:
+        id_area_seleccionada = int(area_seleccionada.split("ID: ")[1][:-1])
+        area_datos = next((area for area in areas if area[0] == id_area_seleccionada), None)
+    except (IndexError, ValueError) as e:
+        st.error(f"Error procesando el área seleccionada: {e}")
+        return
+
+    if not area_datos:
+        st.warning("Área no encontrada.")
+        return
+
+    # Obtener servicios relacionados al área seleccionada
+    servicios = get_servicios_por_area(id_area_seleccionada)  # Lista: [(id_servicio, nombre_serv)]
+    if not servicios:
+        st.warning("No hay servicios disponibles para esta área.")
+        return
+
+    # Seleccionar un servicio específico
+    servicio_seleccionado = st.selectbox(
+        "Seleccione un Servicio",
+        [f"{servicio[1]} (ID: {servicio[0]})" for servicio in servicios]
+    )
+
+    try:
+        id_servicio_seleccionado = int(servicio_seleccionado.split("ID: ")[1][:-1])
+    except (IndexError, ValueError) as e:
+        st.error(f"Error procesando el servicio seleccionado: {e}")
+        return
+
+    # Obtener el responsable actual del área (basado en id_usuario en la tabla `areas`)
+    area_responsable = next(
+        (area for area in areas if area[0] == id_area_seleccionada),
+        None
+    )
+
+    id_responsable_actual = area_responsable[2] if area_responsable else None
+
+    responsable_actual = next(
+        (usuario[1] for usuario in usuarios if usuario[0] == id_responsable_actual),
+        "Sin responsable"
+    )
+
+    st.write(f"Responsable Actual del Área: {responsable_actual}")
+
+    # Seleccionar nuevo responsable
+    nuevo_responsable = st.selectbox(
+        "Seleccione el Nuevo Responsable",
+        [f"{usuario[1]} (ID: {usuario[0]})" for usuario in usuarios]
+    )
+
+    try:
+        nuevo_responsable_id = int(nuevo_responsable.split("ID: ")[1][:-1])
+    except (IndexError, ValueError) as e:
+        st.error(f"Error procesando el nuevo responsable seleccionado: {e}")
+        return
+
+    # Botón para actualizar
+    if st.button("Actualizar Responsable"):
+        try:
+            actualizar_responsable(id_area_seleccionada, nuevo_responsable_id)
+            st.success(
+                f"Responsable del área '{area_datos[1]}' actualizado a {nuevo_responsable.split(' (ID: ')[0]}."
             )
-            
-            # Extraer el ID del nuevo responsable seleccionado
-            nuevo_responsable_id = int(nuevo_responsable.split("ID: ")[1][:-1])
-            
-            # Botón para actualizar
-            if st.button("Actualizar Responsable"):
-                actualizar_responsable(servicio_id, nuevo_responsable_id)
-                st.success(f"Responsable del servicio '{tipo_servicio}' actualizado a {nuevo_responsable.split(' (ID: ')[0]}.")
-        else:
-            st.warning("Servicio no encontrado.")
-    else:
-        st.warning("No hay servicios disponibles.")
+        except Exception as e:
+            st.error(f"Error al actualizar el responsable: {e}")
 
+def actualizar_responsable(area_id, nuevo_responsable_id):
+    try:
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE areas SET responsable = %s WHERE id_area = %s",
+            (nuevo_responsable_id, area_id)
+        )
+        conn.commit()  # Se debe llamar con paréntesis
+        #st.success("Responsable actualizado correctamente.")
+    except Error as e:
+        st.error(f"Error al actualizar el responsable: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
-def actualizar_responsable(servicio_id, nuevo_responsable_id):
-    conn = create_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-    "UPDATE servicio_disponibles SET responsable = %s WHERE id_servicio= %s",
-    (nuevo_responsable_id, servicio_id))
-    conn.commit
-    cursor.close()
-    conn.close()
 # Función para crear un usuario
 def crear_usuario():
     st.subheader("Crear Usuario")
+    
+    # Obtener datos de tipos de documento, roles, áreas y servicios
     tipos_documento = get_tipo_documento()
     roles = get_roles()
-
+    areas = get_areas()
+    
     tipo_id = st.selectbox("Tipo de Documento", [tipo[1] for tipo in tipos_documento])
     numero_documento = st.text_input("Número de Documento")
-    nombre = st.text_input("Nombre Completo")
     correo = st.text_input("Correo Electrónico")
+    
+    if st.button("Verificar Documento/Correo"):
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_usuario FROM usuarios WHERE id_usuario = %s OR correo = %s", (numero_documento, correo))
+        if cursor.fetchone():
+            st.error("El número de documento o correo ya existe.")
+            return
+        cursor.close()
+        conn.close()
+
+    nombre = st.text_input("Nombre Completo")
     contraseña = st.text_input("Contraseña", type="password")
     rol = st.selectbox("Rol", [rol[1] for rol in roles])
+    
+    # Seleccionar área
+    area_seleccionada = st.selectbox("Área", [area[1] for area in areas])
+    area_id = next((area[0] for area in areas if area[1] == area_seleccionada), None)
+    
+    # Filtrar servicios disponibles en el área seleccionada
+    servicios = get_servicios_por_area(area_id)
+    servicio_seleccionado = st.selectbox("Servicio", [servicio[1] for servicio in servicios])
+    servicio_id = next((servicio[0] for servicio in servicios if servicio[1] == servicio_seleccionado), None)
 
     if st.button("Crear Usuario"):
         tipo_doc_id = next((tipo[0] for tipo in tipos_documento if tipo[1] == tipo_id), None)
         rol_id = next((r[0] for r in roles if r[1] == rol), None)
 
-        if tipo_doc_id and numero_documento and nombre and correo and contraseña and rol_id:
+        if tipo_doc_id and numero_documento and nombre and correo and contraseña and rol_id and area_id and servicio_id:
             try:
                 hashed_password = bcrypt.hashpw(contraseña.encode('utf-8'), bcrypt.gensalt())
                 conn = create_connection()
                 cursor = conn.cursor()
+                
+                # Insertar usuario
                 cursor.execute(
                     "INSERT INTO usuarios (tipo_id, id_usuario, nombre, correo, contraseña, rol_id, Estado_u) VALUES (%s, %s, %s, %s, %s, %s, %s)",
                     (tipo_doc_id, numero_documento, nombre, correo, hashed_password, rol_id, 1)
                 )
+                
+                # Obtener el ID del usuario recién creado
+                cursor.execute("SELECT id_usuario FROM usuarios WHERE id_usuario = %s", (numero_documento,))
+                usuario_id = cursor.fetchone()[0]
+                
+                # Actualizar el servicio con el usuario como responsable
+                cursor.execute(
+                    "UPDATE areas SET responsable = %s WHERE id_area = %s",
+                    (usuario_id, area_id)
+                )
+                
                 conn.commit()
-                st.success("Usuario creado exitosamente.")
+                st.success(f"Usuario '{nombre}' creado exitosamente y asignado al servicio '{servicio_seleccionado}' en el área '{area_seleccionada}'.")
             except Error as e:
                 st.error(f"Error al crear el usuario: {e}")
             finally:
@@ -118,9 +218,7 @@ def crear_usuario():
                     conn.close()
         else:
             st.error("Por favor, completa todos los campos.")
-
-
-# Función para modificar un usuario
+            
 # Función para modificar un usuario
 def modificar_usuario():
     st.subheader("Modificar Usuario")
@@ -205,37 +303,26 @@ def eliminar_usuario():
 def ver_usuarios():
     st.subheader("Lista de Usuarios")
     try:
-        conn = create_connection()  # Función para crear conexión a la base de datos
+        conn = create_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id_usuario, nombre, correo, rol_id, Estado_u FROM usuarios")
+        query = """
+            SELECT u.id_usuario, u.nombre, u.correo, r.nombre_rol, 
+                   CASE WHEN u.Estado_u = 1 THEN 'Activo' ELSE 'Inactivo' END AS estado
+            FROM usuarios u
+            JOIN roles r ON u.rol_id = r.id_rol
+        """
+        cursor.execute(query)
         usuarios = cursor.fetchall()
         
-        if usuarios:
-            # Crear una lista para almacenar los datos procesados
-            data = []
-            for usuario in usuarios:
-                rol_nombre = get_rol_nombre(usuario[3])  # Función para obtener el nombre del rol
-                estado = "Activo" if usuario[4] == 1 else "Inactivo"
-                data.append({
-                    "Documento": usuario[0],
-                    "Nombre": usuario[1],
-                    "Correo": usuario[2],
-                    "Rol": rol_nombre,
-                    "Estado": estado
-                })
-            
-            # Convertir los datos a un DataFrame de pandas
-            df = pd.DataFrame(data)
-            
-            # Mostrar los datos en formato de tabla
-            st.table(df)  # Cambia a st.dataframe(df) si prefieres una tabla interactiva
-        else:
-            st.info("No hay usuarios registrados.")
+        # Convertir los datos a un DataFrame de pandas
+        df = pd.DataFrame(usuarios, columns=["Documento", "Nombre", "Correo", "Rol", "Estado"])
+        st.dataframe(df)
     except Error as e:
         st.error(f"Error al obtener usuarios: {e}")
     finally:
-        if conn:
+        if cursor:
             cursor.close()
+        if conn:
             conn.close()
 
 
@@ -270,35 +357,54 @@ def actualizar_usuario(id_usuario, nombre, correo, rol, hashed_password=None):
 
 
 # Funciones auxiliares
-def get_tipo_documento():
-    conn = create_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id_tipo_doc, nombre_tipo_doc FROM tipo_documento")
-    tipos_documento = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return tipos_documento
 
+def get_tipo_documento():
+    try:
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_tipo_doc, nombre_tipo_doc FROM tipo_documento")
+        tipos_documento = cursor.fetchall()
+        return tipos_documento
+    except Error as e:
+        st.error(f"Error al obtener Tipo Documentos: {e}")
+        return []
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 def get_roles():
-    conn = create_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id_rol, nombre_rol FROM roles")
-    roles = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return roles
-
+    try:
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_rol, nombre_rol FROM roles")
+        roles = cursor.fetchall()
+        return roles
+    except Error as e:
+        st.error(f"Error al obtener roles: {e}")
+        return []
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 def get_usuarios():
-    conn = create_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id_usuario, nombre, correo, rol_id FROM usuarios")
-    usuarios = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return usuarios
-
+    try:
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_usuario, nombre, correo, rol_id FROM usuarios")
+        usuarios = cursor.fetchall()
+        return usuarios
+    except Error as e:
+        st.error(f"Error al obtener usuarios: {e}")
+        return []
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 def get_rol_nombre(rol_id):
     conn = create_connection()
@@ -312,8 +418,41 @@ def get_rol_nombre(rol_id):
 def get_servicios():
     conn = create_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id_servicio, nombre_serv, responsable FROM servicio_disponibles")
+    cursor.execute("SELECT id_servicio, nombre_serv FROM servicio_disponibles")
     servicios = cursor.fetchall()
     cursor.close()
     conn.close()
     return servicios
+
+def get_areas():
+    try:
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_area, area, responsable FROM areas")
+        areas = cursor.fetchall()
+        return areas
+    except Error as e:
+        st.error(f"Error al obtener áreas: {e}")
+        return []
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+# Función para obtener servicios por área
+def get_servicios_por_area(area_id):
+    try:
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_servicio, nombre_serv, id_area FROM servicio_disponibles WHERE id_area = %s", (area_id,))
+        servicios = cursor.fetchall()
+        return servicios
+    except Error as e:
+        st.error(f"Error al obtener servicios: {e}")
+        return []
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()

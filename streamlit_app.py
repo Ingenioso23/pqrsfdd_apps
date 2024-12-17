@@ -262,25 +262,33 @@ def register_page():
     st.subheader("Registrar Usuario")
     tipos_documento = get_tipo_documento()
     roles = get_roles()
+    conn = create_connection()
+    cursor = conn.cursor()
     
     tipo_id = st.selectbox("Tipo de Documento", [tipo[1] for tipo in tipos_documento])
     numero_documento = st.text_input("Número de Documento")
-    nombre = st.text_input("Nombre Completo")
     email = st.text_input("Correo Electrónico")
-    password = st.text_input("Contraseña", type="password")
-    rol = st.selectbox("Rol", [rol[1] for rol in roles])
+    cursor.execute("SELECT id_usuario FROM usuarios WHERE id_usuario = %s OR correo = %s", (numero_documento, email))
+    if cursor.fetchone():
+        st.error("El número de documento o correo ya existe.")
+        return
+    else:
+        nombre = st.text_input("Nombre Completo")
+        
+        password = st.text_input("Contraseña", type="password")
+        rol = st.selectbox("Rol", [rol[1] for rol in roles])
 
-    if st.button("Registrar"):
-        if tipo_id and numero_documento and nombre and email and password and rol:
-            tipo_doc_id = next((tipo[0] for tipo in tipos_documento if tipo[1] == tipo_id), None)
-            rol_id = next((r[0] for r in roles if r[1] == rol), None)
-            
-            if tipo_doc_id is None or rol_id is None:
-                st.error("El tipo de documento o el rol seleccionado no es válido.")
+        if st.button("Registrar"):
+            if tipo_id and numero_documento and nombre and email and password and rol:
+                tipo_doc_id = next((tipo[0] for tipo in tipos_documento if tipo[1] == tipo_id), None)
+                rol_id = next((r[0] for r in roles if r[1] == rol), None)
+                
+                if tipo_doc_id is None or rol_id is None:
+                    st.error("El tipo de documento o el rol seleccionado no es válido.")
+                else:
+                    register_user(tipo_doc_id, numero_documento, nombre, email, password, rol_id)
             else:
-                register_user(tipo_doc_id, numero_documento, nombre, email, password, rol_id)
-        else:
-            st.error("Por favor, completa todos los campos.")
+                st.error("Por favor, completa todos los campos.")
 
     if st.button("Volver al Inicio de Sesión"):
         st.session_state['page'] = 'login'

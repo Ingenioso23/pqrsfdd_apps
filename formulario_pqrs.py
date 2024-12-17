@@ -41,6 +41,7 @@ def enviar_correo(destinatario, asunto, mensaje):
 
     # Enviar el correo
     try:
+        print(destinatario)
         # Establecer conexión con el servidor SMTP
         server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
         server.ehlo()  # Saludar al servidor SMTP
@@ -219,8 +220,16 @@ def submit_form(datos_cliente, datos_sucesos, datos_tramite,  radicado):
             enviar_correo(correo_cliente, "Confirmación de solicitud PQRSFDD", mensaje_cliente)
 
             # Obtener el correo del usuario responsable desde la tabla de usuarios
-            cursor.execute("SELECT correo FROM usuarios WHERE id_usuario = %s", (datos_sucesos[3],))
-            correo_responsable = cursor.fetchone()[0]
+            cursor.execute("SELECT correo FROM usuarios WHERE id_usuario = %s", (datos_sucesos[4],))
+            result = cursor.fetchone()
+            if result:
+                correo_responsable = result[0]
+                print(correo_responsable)
+            else:
+                print("No se encontró el correo del responsable.")
+                return
+            
+            #print(correo_responsable)
             mensaje_responsable = (
                 f"Tiene una solicitud pendiente por responder con número de radicado {radicado}. \n "
                 f"Tipo de Solicitud: {datos_tramite[1]} \n "
@@ -235,10 +244,6 @@ def submit_form(datos_cliente, datos_sucesos, datos_tramite,  radicado):
             enviar_correo(correo_responsable, "Nueva solicitud pendiente en PQRSFDD", mensaje_responsable)
 
             connection.commit()     
-            
-            
-            
-            connection.commit()  
             
             
             st.session_state.clear()
@@ -388,8 +393,8 @@ def main():
     responsable_data = fetch_options(f"""
     SELECT u.id_usuario, u.nombre 
     FROM usuarios u 
-    JOIN servicio_disponibles sd ON u.id_usuario = sd.responsable 
-    WHERE sd.id_servicio = {servicio}
+    JOIN areas a ON u.id_usuario = a.responsable 
+    WHERE a.id_area = {servicio}
     """)
 
     if responsable_data:

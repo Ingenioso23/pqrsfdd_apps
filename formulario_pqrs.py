@@ -29,6 +29,8 @@ SMTP_PORT = os.getenv('SMTP_PORT')
 SMTP_USER = os.getenv('SMTP_USER')
 SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
 
+zona_horaria_colombia = pytz.timezone('America/Bogota')
+
 def enviar_correo(destinatario, asunto, mensaje):
     # Crear el mensaje de correo
     msg = MIMEMultipart()
@@ -262,7 +264,8 @@ def main():
     st.header("FORMULARIO DE SOLICITUD PQRSFDD")
 
     st.subheader("Información de la Solicitud")
-    fecha_solicitud = datetime.now()
+    fecha_solicitud = datetime.now(zona_horaria_colombia)
+
     st.write("Fecha de Solicitud:", fecha_solicitud.strftime("%Y-%m-%d"))
     
     tipo_solicitud_data = fetch_options("SELECT id_solicitud, nombre_sol FROM tipo_solicitud")
@@ -397,7 +400,7 @@ def main():
         responsable_seleccionado = None
         st.write("No existen Responsables asociados a este servicio.")
 
-    fecha_atencion = st.date_input("Fecha de Atención", datetime.today())
+    fecha_atencion = st.date_input("Fecha de Atención", datetime.now(zona_horaria_colombia))
     hora_atencion = st.time_input("Hora del Suceso",obtener_hora_actual_colombia())
     descripcion = st.text_area("Descripción del Suceso", value=st.session_state.get('descripcion', ''))
     observacion = st.text_area("Observaciones", value=st.session_state.get('observacion', ''))

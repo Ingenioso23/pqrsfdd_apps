@@ -139,7 +139,7 @@ def fetch_options(query):
 
 # Función para generar el radicado
 def generar_radicado(tipo_solicitud):
-    fecha_actual = datetime.now().strftime("%d%m%Y")
+    fecha_actual = datetime.now(zona_horaria_colombia).strftime("%d%m%Y")
     
     connection = create_connection()
     if connection:

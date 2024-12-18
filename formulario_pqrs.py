@@ -41,7 +41,7 @@ def enviar_correo(destinatario, asunto, mensaje):
 
     # Enviar el correo
     try:
-        print(destinatario)
+        #print(destinatario)
         # Establecer conexión con el servidor SMTP
         server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
         server.ehlo()  # Saludar al servidor SMTP
@@ -224,7 +224,7 @@ def submit_form(datos_cliente, datos_sucesos, datos_tramite,  radicado):
             result = cursor.fetchone()
             if result:
                 correo_responsable = result[0]
-                print(correo_responsable)
+                #print(correo_responsable)
             else:
                 print("No se encontró el correo del responsable.")
                 return

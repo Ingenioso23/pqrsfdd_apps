@@ -10,6 +10,9 @@ import smtplib
 import email
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+
 LOGO_PATH = "logo_clinivida.jpg"
 MAX_FILE_SIZE_MB = 2
 # Cargar las variables de entorno desde el archivo .env
@@ -31,7 +34,7 @@ SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
 
 zona_horaria_colombia = pytz.timezone('America/Bogota')
 
-def enviar_correo(destinatario, asunto, mensaje):
+def enviar_correo(destinatario, asunto, mensaje, archivo_adjunto=None):
     # Crear el mensaje de correo
     msg = MIMEMultipart()
     msg['From'] = SMTP_USER
@@ -39,17 +42,29 @@ def enviar_correo(destinatario, asunto, mensaje):
     msg['Subject'] = asunto
     msg.attach(MIMEText(mensaje, 'plain'))
 
+    # Adjuntar archivo si se proporciona
+    if archivo_adjunto:
+        try:
+            with open(archivo_adjunto, 'rb') as adjunto:
+                parte = MIMEBase('application', 'octet-stream')
+                parte.set_payload(adjunto.read())
+                encoders.encode_base64(parte)
+                parte.add_header(
+                    'Content-Disposition',
+                    f'attachment; filename="{os.path.basename(archivo_adjunto)}"'
+                )
+                msg.attach(parte)
+        except Exception as e:
+            print(f"Error al adjuntar el archivo: {e}")
+            return False
+
     # Enviar el correo
     try:
-        #print(destinatario)
-        # Establecer conexión con el servidor SMTP
         server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
-        server.ehlo()  # Saludar al servidor SMTP
-        server.starttls()  # Inicia la conexión segura
-        server.ehlo()  # Saludo adicional después del STARTTLS
-        server.login(SMTP_USER, SMTP_PASSWORD)  # Iniciar sesión
-        server.sendmail(SMTP_USER, destinatario, msg.as_string())  # Enviar correo
-        server.quit()  # Cerrar la conexión
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.sendmail(SMTP_USER, destinatario, msg.as_string())
+        server.quit()
         return True
     except Exception as e:
         print(f"Error al enviar correo a {destinatario}: {e}")
@@ -224,25 +239,25 @@ def submit_form(datos_cliente, datos_sucesos, datos_tramite,  radicado):
             result = cursor.fetchone()
             if result:
                 correo_responsable = result[0]
-                #print(correo_responsable)
+                archivo_adjunto = datos_sucesos[9]  # Ruta del archivo adjunto
+                mensaje_responsable = (
+                    f"Tiene una solicitud pendiente por responder con número de radicado {radicado}. \n "
+                    f"Tipo de Solicitud: {datos_tramite[1]} \n "
+                    f"Fecha de radicado: {datos_sucesos[2]} \n "
+                    f"Fecha de vencimiento: {datos_tramite[2]} \n\n"
+                    f"Descripción: {datos_sucesos[7]} \n "
+                    f"Observación: {datos_sucesos[8]} \n\n"
+                    f"Ingrese al sistema y responda las pqrsfdd pendientes: \n"
+                    f"https://formulario-respuestas.streamlit.app/"
+                )
+                
+                # Enviar el correo con el adjunto
+                if archivo_adjunto and os.path.isfile(archivo_adjunto):
+                    enviar_correo(correo_responsable, "Nueva solicitud pendiente en PQRSFDD", mensaje_responsable, archivo_adjunto)
+                else:
+                    enviar_correo(correo_responsable, "Nueva solicitud pendiente en PQRSFDD", mensaje_responsable)
             else:
                 print("No se encontró el correo del responsable.")
-                return
-            
-            #print(correo_responsable)
-            mensaje_responsable = (
-                f"Tiene una solicitud pendiente por responder con número de radicado {radicado}. \n "
-                f"Tipo de Solicitud: {datos_tramite[1]} \n "
-                f"Fecha de radicado: {datos_sucesos[2]} \n "
-                f"Fecha de vencimiento: {datos_tramite[2]} \n\n"
-                f"Descripción: {datos_sucesos[7]} \n "
-                f"Observación: {datos_sucesos[8]} \n "
-                f"Adjunto: {datos_sucesos[9]} \n\n"
-                f"Ingrese al sistema y responda las pqrsfdd pendientes: \n"
-                f"https://formulario-respuestas.streamlit.app/"
-            )
-            enviar_correo(correo_responsable, "Nueva solicitud pendiente en PQRSFDD", mensaje_responsable)
-
             connection.commit()     
             
             

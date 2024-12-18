@@ -174,8 +174,8 @@ def requests_page():
                         row['Fecha'],
                         row['Hora']
                     )
-                    st.success(f"Se ha generado el PDF para el Radicado {row['ID']}.")
-                    st.download_button(label="Descargar PDF", data=open(pdf_path, "rb"), file_name=f"Radicado_{row['ID']}.pdf", mime="application/pdf")
+                    #st.success(f"Se ha generado el PDF para el Radicado {row['ID']}.")
+                    st.download_button(label="Ver PDF", data=open(pdf_path, "rb"), file_name=f"Radicado_{row['ID']}.pdf", mime="application/pdf")
 
     # Cierre de la conexión a la base de datos
     cursor.close()

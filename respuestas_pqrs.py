@@ -7,6 +7,8 @@ from mysql.connector import Error
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 
 # Configuración de la página de Streamlit (debe ser la primera línea)
 st.set_page_config(page_title="Formulario de Respuesta PQRSFDD")
@@ -47,7 +49,7 @@ def create_connection():
         return None
 
 # Función para enviar correos
-def enviar_correo(destinatario, asunto, mensaje):
+def enviar_correo(destinatario, asunto, mensaje, archivo_adjunto=None):
     # Crear el mensaje de correo
     msg = MIMEMultipart()
     msg['From'] = SMTP_USER
@@ -55,20 +57,34 @@ def enviar_correo(destinatario, asunto, mensaje):
     msg['Subject'] = asunto
     msg.attach(MIMEText(mensaje, 'plain'))
 
+    # Adjuntar archivo si se proporciona
+    if archivo_adjunto:
+        try:
+            with open(archivo_adjunto, 'rb') as adjunto:
+                parte = MIMEBase('application', 'octet-stream')
+                parte.set_payload(adjunto.read())
+                encoders.encode_base64(parte)
+                parte.add_header(
+                    'Content-Disposition',
+                    f'attachment; filename="{os.path.basename(archivo_adjunto)}"'
+                )
+                msg.attach(parte)
+        except Exception as e:
+            print(f"Error al adjuntar el archivo: {e}")
+            return False
+
     # Enviar el correo
     try:
-        # Establecer conexión con el servidor SMTP
         server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
-        server.ehlo()  # Saludar al servidor SMTP
-        server.starttls()  # Inicia la conexión segura
-        server.ehlo()  # Saludo adicional después del STARTTLS
-        server.login(SMTP_USER, SMTP_PASSWORD)  # Iniciar sesión
-        server.sendmail(SMTP_USER, destinatario, msg.as_string())  # Enviar correo
-        server.quit()  # Cerrar la conexión
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.sendmail(SMTP_USER, destinatario, msg.as_string())
+        server.quit()
         return True
     except Exception as e:
         print(f"Error al enviar correo a {destinatario}: {e}")
         return False
+
 
 # Función para obtener los radicados pendientes
 def obtener_radicados(usuario):
@@ -242,13 +258,19 @@ if usuario_logueado:
                         mensaje = (
                             f"Su solicitud con radicado {radicado_seleccionado} ha sido respondida.\n"
                             f"Respuesta: {descripcion} \n\n"
-                            f"Adjunto {rutas_adjuntos}\n\n"
-                            f"Te invitamos a contestar la encuenta de satisfacción siguiente: \n"
+                            f"Te invitamos a contestar la encuenta de satisfacción siguiente: \n\n"
                             f"https://forms.gle/pjpNxWQPA7mYvyvs9"
                         )
-                        enviar_correo(correo, "Respuesta PQRSFDD", mensaje)
+                        if rutas_adjuntos and os.path.isfile(rutas_adjuntos):
+                            #enviar_correo(correo_responsable, "Nueva solicitud pendiente en PQRSFDD", mensaje_responsable, archivo_adjunto)
+                            enviar_correo(correo, "Respuesta PQRSFDD", mensaje, rutas_adjuntos)
                         
-                        st.success("Respuesta enviada correctamente.")
+                            st.success("Respuesta enviada correctamente.")
+                        else:
+                            #enviar_correo(correo_responsable, "Nueva solicitud pendiente en PQRSFDD", mensaje_responsable)
+                            enviar_correo(correo, "Respuesta PQRSFDD", mensaje)
+                        
+                            st.success("Respuesta enviada correctamente.")
                     except Exception as e:
                         connection.rollback()
                         st.error(f"Error al actualizar el estado: {e}")

@@ -260,38 +260,126 @@ def login_page():
 # Función para mostrar el formulario de registro de usuario
 def register_page():
     st.subheader("Registrar Usuario")
+    
+    # Obtener datos de tipos de documento, roles, áreas y servicios
     tipos_documento = get_tipo_documento()
     roles = get_roles()
-    conn = create_connection()
-    cursor = conn.cursor()
-    
+    areas = get_areas()
+
     tipo_id = st.selectbox("Tipo de Documento", [tipo[1] for tipo in tipos_documento])
     numero_documento = st.text_input("Número de Documento")
-    email = st.text_input("Correo Electrónico")
-    cursor.execute("SELECT id_usuario FROM usuarios WHERE id_usuario = %s OR correo = %s", (numero_documento, email))
-    if cursor.fetchone():
-        st.error("El número de documento o correo ya existe.")
-        return
+    correo = st.text_input("Correo Electrónico")
+    
+    # Verificar si el documento o correo ya existe
+    if st.button("Verificar Documento/Correo"):
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_usuario FROM usuarios WHERE id_usuario = %s OR correo = %s", (numero_documento, correo))
+        if cursor.fetchone():
+            st.error("El número de documento o correo ya existe.")
+            cursor.close()
+            conn.close()
+            return
+        cursor.close()
+        conn.close()
+
+    nombre = st.text_input("Nombre Completo")
+    contraseña = st.text_input("Contraseña", type="password")
+    rol = st.selectbox("Rol", [rol[1] for rol in roles])
+
+    # Seleccionar área
+    area_seleccionada = st.selectbox("Área", [area[1] for area in areas])
+    area_id = next((area[0] for area in areas if area[1] == area_seleccionada), None)
+    
+    # Filtrar servicios disponibles en el área seleccionada
+    if area_id:
+        servicios = get_servicios_por_area(area_id)
+        if servicios:
+            servicio_seleccionado = st.selectbox("Servicio", [servicio[1] for servicio in servicios])
+            servicio_id = next((servicio[0] for servicio in servicios if servicio[1] == servicio_seleccionado), None)
+        else:
+            servicio_seleccionado = None
+            servicio_id = None
     else:
-        nombre = st.text_input("Nombre Completo")
-        
-        password = st.text_input("Contraseña", type="password")
-        rol = st.selectbox("Rol", [rol[1] for rol in roles])
+        servicio_seleccionado = None
+        servicio_id = None
 
-        if st.button("Registrar"):
-            if tipo_id and numero_documento and nombre and email and password and rol:
-                tipo_doc_id = next((tipo[0] for tipo in tipos_documento if tipo[1] == tipo_id), None)
-                rol_id = next((r[0] for r in roles if r[1] == rol), None)
+    if st.button("Crear Usuario"):
+        tipo_doc_id = next((tipo[0] for tipo in tipos_documento if tipo[1] == tipo_id), None)
+        rol_id = next((r[0] for r in roles if r[1] == rol), None)
+
+        if tipo_doc_id and numero_documento and nombre and correo and contraseña and rol_id and area_id and servicio_id:
+            try:
+                # Encriptar la contraseña
+                hashed_password = bcrypt.hashpw(contraseña.encode('utf-8'), bcrypt.gensalt())
                 
-                if tipo_doc_id is None or rol_id is None:
-                    st.error("El tipo de documento o el rol seleccionado no es válido.")
-                else:
-                    register_user(tipo_doc_id, numero_documento, nombre, email, password, rol_id)
-            else:
-                st.error("Por favor, completa todos los campos.")
+                # Conectar a la base de datos
+                conn = create_connection()
+                cursor = conn.cursor()
 
+                # Insertar el usuario en la base de datos
+                cursor.execute(
+                    "INSERT INTO usuarios (tipo_id, id_usuario, nombre, correo, contraseña, rol_id, Estado_u) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                    (tipo_doc_id, numero_documento, nombre, correo, hashed_password, rol_id, 0)
+                )
+
+                # Obtener el ID del usuario recién creado
+                cursor.execute("SELECT id_usuario FROM usuarios WHERE id_usuario = %s", (numero_documento,))
+                usuario_id = cursor.fetchone()[0]
+
+                # Actualizar el servicio con el usuario como responsable
+                cursor.execute(
+                    "UPDATE areas SET responsable = %s WHERE id_area = %s",
+                    (usuario_id, area_id)
+                )
+
+                conn.commit()
+                st.success(f"Usuario '{nombre}' creado exitosamente y asignado al servicio '{servicio_seleccionado}' en el área '{area_seleccionada}'.")
+            except Error as e:
+                st.error(f"Error al crear el usuario: {e}")
+            finally:
+                if conn:
+                    cursor.close()
+                    conn.close()
+        else:
+            st.error("Por favor, completa todos los campos.")
+    
     if st.button("Volver al Inicio de Sesión"):
         st.session_state['page'] = 'login'
+        
+def get_areas():
+    try:
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_area, area, responsable FROM areas")
+        areas = cursor.fetchall()
+        return areas
+    except Error as e:
+        st.error(f"Error al obtener áreas: {e}")
+        return []
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+# Función para obtener servicios por área
+def get_servicios_por_area(area_id):
+    try:
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_servicio, nombre_serv, id_area FROM servicio_disponibles WHERE id_area = %s", (area_id,))
+        servicios = cursor.fetchall()
+        return servicios
+    except Error as e:
+        st.error(f"Error al obtener servicios: {e}")
+        return []
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
 
 # Función para mostrar la página de recuperación de contraseña
 def recover_password_page():

@@ -195,7 +195,7 @@ def crear_usuario():
                 # Insertar usuario
                 cursor.execute(
                     "INSERT INTO usuarios (tipo_id, id_usuario, nombre, correo, contraseña, rol_id, Estado_u) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                    (tipo_doc_id, numero_documento, nombre, correo, hashed_password, rol_id, 1)
+                    (tipo_doc_id, numero_documento, nombre, correo, hashed_password, rol_id, 0)
                 )
                 
                 # Obtener el ID del usuario recién creado

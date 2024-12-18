@@ -34,11 +34,11 @@ def form_configuration_page():
 # Función para agregar registros
 def agregar_registro(tabla):
     st.subheader(f"Agregar Registro en {tabla}")
-    campos, valores = obtener_campos_tabla(tabla)
+    campos, alias = obtener_campos_tabla(tabla)
 
     inputs = {}
-    for campo in campos:
-        inputs[campo] = st.text_input(f"{campo}")
+    for campo, alias_nombre in zip(campos, alias):
+        inputs[campo] = st.text_input(f"{alias_nombre}")
 
     if st.button("Guardar"):
         if all(inputs.values()):
@@ -128,23 +128,32 @@ def ver_registros(tabla):
             cursor.close()
             conn.close()
 
-# Función para obtener los campos de una tabla
+# Función para obtener los campos de una tabla y sus alias
 def obtener_campos_tabla(tabla):
     """
     Obtiene los campos de la tabla para dinámicamente generar formularios.
+    Devuelve los nombres de los campos y sus alias correspondientes.
     """
     campos = {
-        "Areas": ["id_area", "nombre_area"],
-        "Ciudad": ["id_ciudad", "nombre_ciu", "id_departamento"],
-        "Departamento": ["id_departamento", "nombre_dep"],
-        "IPS": ["id_ips", "nombre_ips", "id_departamento", "id_ciudad", "direccion"],
-        "EPS": ["id_eps", "nombre_eps"],
-        "Grupo Poblacional": ["id_grupo", "nombre_pob"],
-        "Tipo Documento": ["id_tipo_doc", "nombre_tipo_doc"],
-        "Tipo Estado": ["id_tipo_estado", "nombre_estado"],
-        "Tipo Solicitud": ["id_solicitud", "nombre_sol"],
-        "Roles": ["id_rol", "nombre_rol"],
-        "Régimen": ["id_regimen", "nombre_reg"],
+        "Areas": [("id_area", "ID Área"), ("nombre_area", "Nombre del Área")],
+        "Ciudad": [("id_ciudad", "ID Ciudad"), ("nombre_ciu", "Nombre de la Ciudad"), ("id_departamento", "ID Departamento")],
+        "Departamento": [("id_departamento", "Código DANE"), ("nombre_dep", "Nombre del Departamento")],
+        "IPS": [("id_ips", "Código IPS"), ("nombre_ips", "Nombre de la IPS"), ("id_departamento", "Departamento"), ("id_ciudad", "Ciudad"), ("direccion", "Dirección")],
+        "EPS": [("id_eps", "ID EPS"), ("nombre_eps", "Nombre de la EPS")],
+        "Grupo Poblacional": [("id_grupo", "ID Grupo Poblacional"), ("nombre_pob", "Nombre del Grupo Poblacional")],
+        "Tipo Documento": [("id_tipo_doc", "ID Tipo Documento"), ("nombre_tipo_doc", "Nombre del Tipo de Documento")],
+        "Tipo Estado": [("id_tipo_estado", "ID Tipo de Estado"), ("nombre_estado", "Nombre del Estado")],
+        "Tipo Solicitud": [("id_solicitud", "ID Tipo Solicitud"), ("nombre_sol", "Nombre de la Solicitud")],
+        "Roles": [("id_rol", "ID Rol"), ("nombre_rol", "Nombre del Rol")],
+        "Régimen": [("id_regimen", "ID Régimen"), ("nombre_reg", "Nombre del Régimen")],
     }
-    return campos.get(tabla, []), ["%s"] * len(campos.get(tabla, []))
+    
+    # Obtener los campos y sus alias para la tabla solicitada
+    tabla_campos = campos.get(tabla, [])
 
+    # Desempacar los campos y sus alias
+    nombres_campos = [campo[0] for campo in tabla_campos]
+    alias_campos = [campo[1] for campo in tabla_campos]
+
+    # Retornar los campos y sus alias
+    return nombres_campos, alias_campos
